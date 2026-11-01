@@ -58,10 +58,18 @@ export function ImportStaging(props: ImportStagingProps) {
         </ul>
       )}
 
+      {props.pairing?.hasFrontsBacks && props.pairing.source === 'card-extractor' && !props.pairing.uncertain && (
+        <p className="info">
+          Importing from <strong>Card Extractor</strong>: {props.pairing.frontCount} front(s) and
+          {props.pairing.backCount} back(s) detected. Backs are paired by number
+          (001_front.png ↔ 001_back.png) and assigned automatically — they will not appear as
+          separate cards.
+        </p>
+      )}
       {props.pairing?.uncertain && (
         <p className="warning">
           This archive has <strong>fronts/</strong> and <strong>backs/</strong> folders but the
-          pairing is ambiguous. You can review and correct pairings in the card editor (M2).
+          pairing is ambiguous. You can review and correct pairings in the card editor.
         </p>
       )}
       {props.pairing?.sharedBack && (

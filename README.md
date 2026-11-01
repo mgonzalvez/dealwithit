@@ -59,7 +59,7 @@ GitHub Pages deep links never 404.
   never mutate recipes. Shuffling is Fisher–Yates with
   `crypto.getRandomValues` (rejection sampling, unbiased).
 - **Milestones**: M0 scaffold (done), M1 image/ZIP import, M2 Workshop,
-  M3 Table, M4 export/import, M5 PWA/offline, M6 optional Card Extractor
+  M3 Table, M4 export/import, M5 PWA/offline, M6 Card Extractor bridge
   bridge. See `IMPLEMENTATION_STATUS.md`.
 
 ## Tradeoffs

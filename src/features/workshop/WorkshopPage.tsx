@@ -208,12 +208,33 @@ export function WorkshopPage({ projectId }: { projectId?: string }) {
           ? createDeck(projectId, draftName.trim() || 'Draft deck')
           : decks.find((d) => d.id === existingDeckId) ?? null;
       if (deck) {
+        // Map staged entry keys to the assets actually created in this batch
+        // (deduplicated items map to the existing asset instead).
+        const assetForKey = new Map<string, ImageAsset>();
+        for (let i = 0; i < created.length; i++) assetForKey.set(toCommit[i].key, created[i]);
+        const assetForPath = (zipPath: string | undefined): ImageAsset | undefined => {
+          if (!zipPath) return undefined;
+          const byKey = assetForKey.get(`zip:${zipPath}`);
+          if (byKey) return byKey;
+          return assets.find((a) => a.filename === zipPath.split('/').pop());
+        };
+
         if (pairing?.sharedBack) {
-          const sharedAsset = created.find((a) => a.filename === pairing.sharedBack!.split('/').pop());
+          const sharedAsset = assetForPath(pairing.sharedBack);
           if (sharedAsset) deck = setDefaultBack(deck, sharedAsset.id);
         }
-        for (const asset of created) {
+
+        for (const item of toCommit) {
+          const asset = assetForKey.get(item.key);
+          if (!asset) continue;
+          const isBackImage = Boolean(pairing?.hasFrontsBacks) && /^backs\//i.test(item.zipPath ?? '');
+          if (isBackImage) continue; // backs become card backs, not deck entries
           const card = await ensureCardFromAsset(projectId, asset.id, stripExtension(asset.filename));
+          const backPath = pairing?.pairs[item.key] ?? pairing?.sharedBack;
+          const backAsset = assetForPath(backPath);
+          if (backAsset && backAsset.id !== asset.id) {
+            await saveCardDefinition({ ...card, backAssetId: backAsset.id });
+          }
           deck = addEntryToDeck(deck, card.id, 1);
         }
         await saveDeck(deck);

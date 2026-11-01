@@ -2,18 +2,23 @@ import JSZip from 'jszip';
 import { importManifestSchema } from '../../domain/schemas';
 import { ImportEntry } from './pipeline';
 import { isIgnoredArchivePath, isSafeArchivePath } from './zip-safety';
+import { extractorCardIndex, isCardExtractorArchive } from '../../integration/card-extractor';
 
 const MAX_ARCHIVE_ENTRIES = 2000;
 const MAX_ARCHIVE_BYTES = 300 * 1024 * 1024;
 
 export interface PairingInfo {
   hasFrontsBacks: boolean;
+  /** Where the archive shape came from. */
+  source: 'card-extractor' | 'generic';
   /** A single shared back for all fronts. */
   sharedBack?: string;
-  /** stem -> back path matches for multiple backs. */
+  /** front entry key -> back archive path matches. */
   pairs: Record<string, string>;
   /** True when pairing is ambiguous and needs user review. */
   uncertain: boolean;
+  frontCount: number;
+  backCount: number;
 }
 
 export interface ZipParseResult {
@@ -30,25 +35,55 @@ function stemOf(filename: string): string {
 export function detectFrontBackPairing(entries: ImportEntry[]): PairingInfo {
   const fronts = entries.filter((e) => /^fronts\//i.test(e.zipPath ?? ''));
   const backs = entries.filter((e) => /^backs\//i.test(e.zipPath ?? ''));
-  if (fronts.length === 0 || backs.length === 0) {
-    return { hasFrontsBacks: false, pairs: {}, uncertain: false };
-  }
+  const base: PairingInfo = {
+    hasFrontsBacks: false,
+    source: 'generic',
+    pairs: {},
+    uncertain: false,
+    frontCount: fronts.length,
+    backCount: backs.length
+  };
+  if (fronts.length === 0 || backs.length === 0) return base;
+
+  const isExtractor = isCardExtractorArchive([fronts[0].zipPath ?? '', backs[0].zipPath ?? '']);
+
   if (backs.length === 1) {
-    return { hasFrontsBacks: true, sharedBack: backs[0].zipPath, pairs: {}, uncertain: false };
+    return {
+      ...base,
+      hasFrontsBacks: true,
+      source: isExtractor ? 'card-extractor' : 'generic',
+      sharedBack: backs[0].zipPath,
+      uncertain: false
+    };
   }
+
+  const pairs: Record<string, string> = {};
+  let uncertain = fronts.length !== backs.length;
+
+  if (isExtractor) {
+    // Card Extractor names files 001_front.png / 001_back.png: pair by index.
+    const backByIndex = new Map<number, string>();
+    for (const back of backs) {
+      const index = extractorCardIndex(back.zipPath ?? '');
+      if (index !== null) backByIndex.set(index, back.zipPath ?? back.filename);
+    }
+    for (const front of fronts) {
+      const index = extractorCardIndex(front.zipPath ?? '');
+      const match = index !== null ? backByIndex.get(index) : undefined;
+      if (match) pairs[front.key] = match;
+      else uncertain = true;
+    }
+    return { ...base, hasFrontsBacks: true, source: 'card-extractor', pairs, uncertain };
+  }
+
   const backByStem = new Map<string, string>();
   for (const back of backs) backByStem.set(stemOf(back.filename), back.zipPath ?? back.filename);
-  const pairs: Record<string, string> = {};
-  let uncertain = false;
   for (const front of fronts) {
     const match = backByStem.get(stemOf(front.filename));
-    if (match) {
-      pairs[front.key] = match;
-    } else {
-      uncertain = true;
-    }
+    if (match) pairs[front.key] = match;
+    else uncertain = true;
   }
-  return { hasFrontsBacks: true, pairs, uncertain: uncertain || fronts.length !== backs.length };
+  return { ...base, hasFrontsBacks: true, pairs, uncertain };
 }
 
 /**
@@ -66,14 +101,14 @@ export async function parseImageZip(buffer: ArrayBuffer): Promise<ZipParseResult
       entries: [],
       errors: ['This file could not be read as a ZIP archive. It may be corrupted or unsupported.'],
       manifest: null,
-      pairing: { hasFrontsBacks: false, pairs: {}, uncertain: false }
+      pairing: { hasFrontsBacks: false, source: 'generic', pairs: {}, uncertain: false, frontCount: 0, backCount: 0 }
     };
   }
 
   const names = Object.keys(zip.files);
   if (names.length > MAX_ARCHIVE_ENTRIES) {
     errors.push(`Archive contains too many entries (${names.length}). Maximum is ${MAX_ARCHIVE_ENTRIES}.`);
-    return { entries: [], errors, manifest: null, pairing: { hasFrontsBacks: false, pairs: {}, uncertain: false } };
+    return { entries: [], errors, manifest: null, pairing: { hasFrontsBacks: false, source: 'generic', pairs: {}, uncertain: false, frontCount: 0, backCount: 0 } };
   }
 
   const entries: ImportEntry[] = [];
