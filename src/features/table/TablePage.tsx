@@ -156,10 +156,17 @@ export function TablePage({
   useEffect(() => {
     if (!table) return;
     const timer = setTimeout(async () => {
-      setSaveStatus('Saving…');
-      await saveTable(table);
-      await touchProject(table.projectId);
-      setSaveStatus('Saved ✓');
+      try {
+        setSaveStatus('Saving…');
+        await saveTable(table);
+        await touchProject(table.projectId);
+        setSaveStatus('Saved ✓');
+      } catch (error) {
+        setSaveStatus(
+          'Save failed — browser storage may be full. Export the project from the Library to keep a backup.'
+        );
+        console.error('Table save failed:', error);
+      }
     }, 800);
     return () => clearTimeout(timer);
   }, [table]);
@@ -574,7 +581,7 @@ export function TablePage({
         <button type="button" className="btn btn-secondary" onClick={resetTable}>
           Reset table
         </button>
-        <span className="save-status">{saveStatus || 'Synced'}</span>
+        <span className="save-status" aria-live="polite">{saveStatus || 'Synced'}</span>
       </header>
 
       <div className="table-main">

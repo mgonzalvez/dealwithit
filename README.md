@@ -74,6 +74,15 @@ GitHub Pages deep links never 404.
 - Demo artwork is generated procedurally at runtime — no bundled third-party
   images, no licensing risk.
 
+## Portable projects
+
+Each project can be exported from the Library as a self-contained
+`<name>.dealwithit.zip` (manifest + every original image + decks + table
+state, with checksums). Importing that archive on any device restores the
+project exactly; IDs are remapped so the same archive can be imported
+devices repeatedly without collisions. Ordinary image ZIPs (including Card
+Extractor exports) still import through the Workshop.
+
 ## Privacy
 
 Everything is stored locally in your browser (IndexedDB). Nothing is uploaded

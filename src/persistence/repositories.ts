@@ -7,6 +7,7 @@ import {
   SCHEMA_VERSION,
   TableState
 } from '../domain/models';
+import { ProjectData } from '../features/export/export';
 
 export async function createProject(name: string, description?: string): Promise<Project> {
   const now = Date.now();
@@ -111,6 +112,32 @@ export async function ensureCardFromAsset(
   };
   await db.cardDefinitions.add(card);
   return card;
+}
+
+export async function loadProjectData(projectId: string): Promise<ProjectData | null> {
+  const project = await db.projects.get(projectId);
+  if (!project) return null;
+  const assets = await db.imageAssets.where('projectId').equals(projectId).toArray();
+  const cards = await db.cardDefinitions.where('projectId').equals(projectId).toArray();
+  const decks = await db.deckDefinitions.where('projectId').equals(projectId).toArray();
+  const tables = await db.tableStates.where('projectId').equals(projectId).toArray();
+  const blobs = new Map<string, Blob>();
+  for (const asset of assets) {
+    const record = await db.assetBlobs.get(asset.blobKey);
+    if (record) blobs.set(asset.blobKey, record.blob);
+  }
+  return { project, assets, blobs, cards, decks, tables };
+}
+
+export async function saveProjectData(data: ProjectData): Promise<void> {
+  await db.projects.add(data.project);
+  for (const asset of data.assets) {
+    const blob = data.blobs.get(asset.blobKey);
+    if (blob) await db.assetBlobs.put({ blobKey: asset.blobKey, blob });
+  }
+  for (const card of data.cards) await db.cardDefinitions.put(card);
+  for (const deck of data.decks) await db.deckDefinitions.put(deck);
+  for (const table of data.tables) await db.tableStates.put(table);
 }
 
 export async function estimateStorage(): Promise<{ usage: number; quota: number }> {

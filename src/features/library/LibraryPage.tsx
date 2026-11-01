@@ -1,13 +1,29 @@
 import { useEffect, useState } from 'react';
 import { Button, EmptyState } from '../../components/ui';
-import { createProject, listDecks, listProjects } from '../../persistence/repositories';
+import {
+  createProject,
+  estimateStorage,
+  listDecks,
+  listProjects,
+  loadProjectData,
+  saveProjectData
+} from '../../persistence/repositories';
 import { deckCardCount } from '../../domain/deck-operations';
 import { Project } from '../../domain/models';
+import { buildProjectZip, exportFilename, readProjectZip } from '../export/export';
 import { createDemoProject } from './demo';
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 MB';
+  const mb = bytes / 1024 / 1024;
+  return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb.toFixed(1)} MB`;
+}
 
 export function LibraryPage({ navigate }: { navigate: (hash: string) => void }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [deckCounts, setDeckCounts] = useState<Record<string, number>>({});
+  const [storage, setStorage] = useState<{ usage: number; quota: number } | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
   async function refresh() {
     const projects = await listProjects();
@@ -18,6 +34,7 @@ export function LibraryPage({ navigate }: { navigate: (hash: string) => void }) 
       counts[project.id] = decks.reduce((sum, d) => sum + deckCardCount(d), 0);
     }
     setDeckCounts(counts);
+    setStorage(await estimateStorage());
   }
 
   useEffect(() => {
@@ -36,6 +53,42 @@ export function LibraryPage({ navigate }: { navigate: (hash: string) => void }) 
     await refresh();
   }
 
+  async function handleExport(project: Project) {
+    try {
+      const data = await loadProjectData(project.id);
+      if (!data) return;
+      const buffer = await buildProjectZip(data);
+      const url = URL.createObjectURL(new Blob([buffer], { type: 'application/zip' }));
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = exportFilename(project.name);
+      anchor.click();
+      URL.revokeObjectURL(url);
+      setMessage(`Exported "${project.name}" as ${exportFilename(project.name)}.`);
+    } catch (error) {
+      setMessage(`Export failed: ${(error as Error).message}`);
+    }
+  }
+
+  async function handleImport(file: File) {
+    try {
+      const buffer = new Uint8Array(await file.arrayBuffer());
+      const result = await readProjectZip(buffer.buffer as ArrayBuffer);
+      if (!result.data) {
+        setMessage(result.errors.join(' '));
+        return;
+      }
+      await saveProjectData(result.data);
+      await refresh();
+      setMessage(
+        `Imported "${result.data.project.name}" (${result.data.assets.length} images, ${result.data.decks.length} decks).` +
+          (result.info.length ? ` Notes: ${result.info.join(' ')}` : '')
+      );
+    } catch (error) {
+      setMessage(`Import failed: ${(error as Error).message}`);
+    }
+  }
+
   return (
     <section className="library">
       <div className="library-header">
@@ -43,9 +96,26 @@ export function LibraryPage({ navigate }: { navigate: (hash: string) => void }) 
         <div className="library-actions">
           <Button label="Create project" onClick={handleCreate} />
           <Button label="Start with demo deck" variant="secondary" onClick={handleDemo} />
+          <label className="btn btn-secondary import-action">
+            Import project
+            <input
+              type="file"
+              accept=".zip,application/zip"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void handleImport(file);
+              }}
+            />
+          </label>
         </div>
       </div>
-      <p className="privacy-note">Your game files stay on this device unless you export them.</p>
+      <p className="privacy-note">
+        Your game files stay on this device unless you export them.
+        {storage && storage.quota > 0 && (
+          <> Browser storage in use: {formatBytes(storage.usage)} of about {formatBytes(storage.quota)}.</>
+        )}
+      </p>
+      {message && <p className="committed" aria-live="polite">{message}</p>}
 
       {projects.length === 0 ? (
         <EmptyState
@@ -77,6 +147,11 @@ export function LibraryPage({ navigate }: { navigate: (hash: string) => void }) 
                   label="Play on Table"
                   variant="secondary"
                   onClick={() => navigate(`#/table/${project.id}`)}
+                />
+                <Button
+                  label="Export"
+                  variant="secondary"
+                  onClick={() => void handleExport(project)}
                 />
               </div>
             </article>
