@@ -1,4 +1,4 @@
-import { shuffleInstances } from './deck-operations';
+import { dealN, shuffleInstances } from './deck-operations';
 import { CardInstance, TableObject, TABLE_HEIGHT, TABLE_WIDTH } from './models';
 
 /**
@@ -83,10 +83,121 @@ export function drawFromStack(stack: TableObject, objects: TableObject[]): Table
       y: stack.y,
       z: stack.z + 1,
       rotationDeg: 0,
-      cardInstances: [drawn]
+      cardInstances: [drawn],
+      sourceDeckId: stack.sourceDeckId
     });
   }
   return result;
+}
+
+/** Deal N cards from a stack into a face-down grid of loose cards. */
+export function dealFromStack(
+  stack: TableObject,
+  objects: TableObject[],
+  n: number
+): TableObject[] {
+  const { dealt, remaining } = dealN(stack.cardInstances, n);
+  const result = objects.filter((o) => o.id !== stack.id);
+  if (remaining.length > 0) {
+    result.push({ ...stack, cardInstances: remaining });
+  }
+  dealt.forEach((instance, i) => {
+    result.push({
+      id: crypto.randomUUID(),
+      type: 'card',
+      x: stack.x + 140 + (i % 8) * 80,
+      y: stack.y + Math.floor(i / 8) * 90,
+      z: stack.z + 1,
+      rotationDeg: 0,
+      cardInstances: [instance],
+      sourceDeckId: stack.sourceDeckId
+    });
+  });
+  return result;
+}
+
+export function flipTop(object: TableObject): TableObject {
+  if (object.cardInstances.length === 0) return object;
+  const instances = [...object.cardInstances];
+  instances[instances.length - 1] = flipInstance(instances[instances.length - 1]);
+  return { ...object, cardInstances: instances };
+}
+
+export function removeObject(objects: TableObject[], id: string): TableObject[] {
+  return objects.filter((o) => o.id !== id);
+}
+
+export function bringToFront(objects: TableObject[], id: string): TableObject[] {
+  const maxZ = Math.max(...objects.map((o) => o.z), 0);
+  return objects.map((o) => (o.id === id ? { ...o, z: maxZ + 1 } : o));
+}
+
+export function sendToBack(objects: TableObject[], id: string): TableObject[] {
+  const minZ = Math.min(...objects.map((o) => o.z), 0);
+  return objects.map((o) => (o.id === id ? { ...o, z: minZ - 1 } : o));
+}
+
+export function duplicateObject(objects: TableObject[], id: string, offset = 60): TableObject[] {
+  const source = objects.find((o) => o.id === id);
+  if (!source) return objects;
+  return [
+    ...objects,
+    {
+      ...source,
+      id: crypto.randomUUID(),
+      x: Math.min(TABLE_WIDTH, source.x + offset),
+      y: Math.min(TABLE_HEIGHT, source.y + offset),
+      z: source.z + 1,
+      cardInstances: source.cardInstances.map((instance) => ({
+        ...instance,
+        instanceId: crypto.randomUUID()
+      }))
+    }
+  ];
+}
+
+/** Absorb loose cards whose centers fall within `radius` of the stack center. */
+export function gatherInto(stack: TableObject, objects: TableObject[], radius = 160): TableObject[] {
+  const absorbed = objects.filter(
+    (o) =>
+      o.id !== stack.id &&
+      o.type === 'card' &&
+      Math.abs(o.x - stack.x) <= radius &&
+      Math.abs(o.y - stack.y) <= radius
+  );
+  if (absorbed.length === 0) return objects;
+  const absorbedInstances = absorbed.flatMap((o) => o.cardInstances);
+  return objects
+    .filter((o) => o.id === stack.id || !absorbed.some((a) => a.id === o.id))
+    .map((o) =>
+      o.id === stack.id ? { ...o, cardInstances: [...o.cardInstances, ...absorbedInstances] } : o
+    );
+}
+
+/** Send a loose card (or cards) back to its source deck's stack, recreating the stack if needed. */
+export function returnToDeck(objects: TableObject[], obj: TableObject): TableObject[] {
+  const rest = removeObject(objects, obj.id);
+  if (obj.cardInstances.length === 0) return rest;
+  const stack = rest.find((o) => o.type === 'stack' && o.sourceDeckId === obj.sourceDeckId);
+  if (stack) {
+    return rest.map((o) =>
+      o.id === stack.id ? { ...o, cardInstances: [...o.cardInstances, ...obj.cardInstances] } : o
+    );
+  }
+  return [
+    ...rest,
+    {
+      id: crypto.randomUUID(),
+      type: 'stack',
+      x: TABLE_WIDTH / 2,
+      y: TABLE_HEIGHT / 2,
+      z: 0,
+      rotationDeg: 0,
+      cardInstances: obj.cardInstances,
+      label: 'Returned cards',
+      sourceDeckId: obj.sourceDeckId
+    }
+  ];
 }
 
 function drawTopFromObject(stack: TableObject): {

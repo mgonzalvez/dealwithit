@@ -7,7 +7,7 @@ Last updated: 2026-11-01
 | M0 — Scaffold & design system | ✅ Done | Vite + React + TS strict app, hash routing, responsive shell, theme (light/dark via CSS variables, 44px touch targets), Button/Dialog/Menu/EmptyState primitives, Dexie IndexedDB schema (version 1), Zod domain schemas, pure deck/table operations with unit tests, demo project (procedurally generated original artwork), GitHub Actions Pages deploy, README |
 | M1 — Upload Images + Import ZIP | ✅ Done | Shared staging pipeline: single/multi upload, drag/drop anywhere, clipboard paste, ZIP import (flat, nested, corrupt, fronts/backs pairing detection), SHA-256 duplicate detection (in-batch and against library), per-file errors, progress, cancel, canvas thumbnails, searchable natural-sorted asset grid, preview dialog, post-import destination choice (Keep in Library / Create Draft Deck / Add to Existing Deck) |
 | M2 — Card definitions & Workshop | ✅ Done | Tabbed Workshop (Import / Cards / Decks). Card editor: front/back faces, 90° rotation, fit (contain/cover), zoom, pan, crop reset, physical size presets (poker/bridge/square/mini) + custom mm, per-card back assignment, neutral generated back, batch "Rotate selected 90°", "Create cards from selected images". Deck builder: create/rename/duplicate/delete, per-entry quantity +/−, reorder ↑/↓, remove, default back, card counts, autosave indicator. Deleting a card definition removes it from all decks but never the image asset. |
-| M3 — Table MVP | ⬳ Not started | Pure table operations exist and are tested; interactive canvas pending |
+| M3 — Table MVP | ✅ Done | Launch decks from a tray as face-down stacks with count badges. Drag, double-tap/double-click flip, action bar (flip, rotate, front/back z-order, duplicate, delete), stack actions (shuffle, draw 1/3, deal, gather, peek-top, delete). Drop a card on a stack to merge. Pan (drag background, Space+drag), zoom (wheel, pinch, buttons, Reset view). Surface colors, Reset table with confirm. Debounced autosave with status. Undo/redo (50 snapshot history, Ctrl/Cmd+Z). Reload resumes exact table state. |
 | M4 — Export/import (.dealwithit.zip) | ⬳ Not started | Manifest builder scaffolded; ZIP round-trip pending |
 | M5 — PWA & polish | ⬳ Partial stub | Manifest + SVG icons present; service worker, PNG icons, offline shell pending |
 | M6 — Card Extractor bridge | ⬳ Deferred | Intentionally blocked until the real Card Extractor export contract is inspected |
@@ -17,6 +17,7 @@ Last updated: 2026-11-01
 **M0:** lint, typecheck, tests, build (both bases) — passing.
 **M1:** lint, typecheck, 41 unit/integration tests, build — passing.
 **M2:** lint, typecheck, 45 unit/integration tests, build (both bases), preview smoke — passing.
+**M3:** lint, typecheck, 54 unit/integration tests, build (both bases), preview smoke — passing.
 
 ### M1 automated coverage (`src/test/import-pipeline.test.ts`)
 - Path-safety and OS-metadata rules
@@ -47,9 +48,17 @@ Last updated: 2026-11-01
 4. Duplicate a deck → copy with fresh entry IDs referencing the same images (no blob duplication).
 5. Delete a card definition → confirm it disappears from every deck but remains in the asset library.
 
+### M3 manual acceptance checklist (browser)
+1. Workshop → create 3 decks → Table → Launch each deck from the tray.
+2. Draw 1, double-tap to flip, drag a card onto another stack (merges, order preserved), shuffle, draw 3 (deals a grid), gather, peek top.
+3. Pan by dragging the felt; zoom with mouse wheel or pinch; Reset view.
+4. Ctrl/Cmd+Z undoes shuffles, draws, moves, flips; Ctrl/Cmd+Shift+Z redoes.
+5. Reload the page — table objects, positions, faces, camera and background resume exactly.
+
 ## Known gaps / next steps
 
-1. Playwright E2E and React Testing Library tests not yet added (M3+).
+1. Playwright E2E and React Testing Library tests not yet added (M4+).
 2. PNG PWA icons (currently SVG placeholders).
 3. Service worker / offline shell (M5).
-4. Card editor (rotation, crop, mm sizes, front/back assignment beyond auto-creation) — M2.
+4. "Draw face-up vs face-down" setting and Deal-N prompt UI (currently fixed Draw 1 / Draw 3 buttons).
+5. Bulk flip/move (M4 polish).

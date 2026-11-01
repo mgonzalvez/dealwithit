@@ -791,6 +791,209 @@ main {
   flex-wrap: wrap;
 }
 
+/* ---------- Table (M3) ---------- */
+
+.table-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.table-toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px;
+}
+
+.bg-picker {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.bg-picker select {
+  min-height: 40px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.save-status {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.table-main {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  min-height: 420px;
+}
+
+.tray {
+  width: 230px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tray-closed {
+  width: auto;
+}
+
+.tray-decks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tray-deck {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.table-canvas {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  min-height: 420px;
+  background: var(--surface-alt);
+  touch-action: none;
+}
+
+.table-world {
+  position: absolute;
+  width: 1600px;
+  height: 1000px;
+  transform-origin: 0 0;
+}
+
+.table-object {
+  position: absolute;
+  background: #f6f1e7;
+  border: 1px solid #b9b3a4;
+  border-radius: 8px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+  cursor: grab;
+}
+
+.table-object:active {
+  cursor: grabbing;
+}
+
+.table-object.selected {
+  outline: 3px solid var(--accent);
+}
+
+.table-object img {
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  display: block;
+}
+
+.stack-edge {
+  position: absolute;
+  inset: 0;
+  background: #d8d2c4;
+  border: 1px solid #b9b3a4;
+  border-radius: 8px;
+}
+
+.stack-edge-1 {
+  transform: translate(-4px, -4px);
+}
+
+.stack-edge-2 {
+  transform: translate(-8px, -8px);
+}
+
+.stack-edge-3 {
+  transform: translate(-12px, -12px);
+}
+
+.count-badge {
+  position: absolute;
+  right: -10px;
+  top: -10px;
+  background: var(--accent);
+  color: #fff;
+  padding: 4px 9px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.zoom-controls {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.action-bar {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+  max-width: 100%;
+}
+
+.peek-overlay {
+  position: absolute;
+  width: 254px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  z-index: 9999;
+}
+
+.peek-overlay img {
+  width: 100%;
+  border-radius: 6px;
+}
+
+@media (max-width: 900px) {
+  .table-main {
+    flex-direction: column;
+  }
+  .tray {
+    width: 100%;
+  }
+}
+
 @media (max-width: 767px) {
   .topbar {
     flex-wrap: wrap;

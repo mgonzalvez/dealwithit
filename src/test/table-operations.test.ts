@@ -1,12 +1,20 @@
 import { describe, it, expect } from 'vitest';
 import {
+  bringToFront,
+  dealFromStack,
   drawFromStack,
+  duplicateObject,
   flipInstance,
+  flipTop,
+  gatherInto,
   launchDeck,
   mergeStack,
   moveObject,
   normalizeRotation,
+  removeObject,
+  returnToDeck,
   rotateObject,
+  sendToBack,
   shuffleStack
 } from '../domain/table-operations';
 import { CardInstance, TableObject } from '../domain/models';
@@ -121,5 +129,106 @@ describe('table draws and shuffles', () => {
     const objects = drawFromStack(s, [s]);
     expect(objects.find((o) => o.id === 'stack-1')).toBeUndefined();
     expect(objects.length).toBe(1);
+  });
+
+  it('drawn cards remember their source deck', () => {
+    const s = stack(4);
+    const objects = drawFromStack(s, [s]);
+    const loose = objects.find((o) => o.type === 'card');
+    expect(loose?.sourceDeckId).toBe('deck-1');
+  });
+});
+
+describe('dealing, stacking and z-order', () => {
+  it('dealFromStack removes from the top and creates loose face-down cards', () => {
+    const s = stack(10);
+    const objects = dealFromStack(s, [s], 3);
+    const remaining = objects.find((o) => o.id === 'stack-1');
+    const loose = objects.filter((o) => o.type === 'card');
+    expect(remaining?.cardInstances.length).toBe(7);
+    expect(loose.length).toBe(3);
+    expect(loose.every((o) => o.cardInstances[0].face === 'back')).toBe(true);
+    // Dealt cards keep bottom-to-top order (top of pile = last dealt).
+    expect(loose.map((o) => o.cardInstances[0].instanceId)).toEqual(['inst-7', 'inst-8', 'inst-9']);
+  });
+
+  it('flipTop toggles only the top instance', () => {
+    const s = stack(3);
+    const flipped = flipTop(s);
+    expect(flipped.cardInstances[2].face).toBe('front');
+    expect(flipped.cardInstances[0].face).toBe('back');
+    expect(flipTop(flipTop(s)).cardInstances[2].face).toBe('back');
+  });
+
+  it('gatherInto absorbs loose cards near the stack and preserves stack order', () => {
+    const s = stack(2);
+    const near: TableObject = {
+      id: 'near',
+      type: 'card',
+      x: s.x + 50,
+      y: s.y + 30,
+      z: 1,
+      rotationDeg: 0,
+      cardInstances: [{ instanceId: 'n1', cardDefinitionId: 'c', face: 'front', rotationDeg: 0 }]
+    };
+    const far: TableObject = {
+      id: 'far',
+      type: 'card',
+      x: s.x + 500,
+      y: s.y,
+      z: 1,
+      rotationDeg: 0,
+      cardInstances: [{ instanceId: 'f1', cardDefinitionId: 'c', face: 'front', rotationDeg: 0 }]
+    };
+    const result = gatherInto(s, [s, near, far], 160);
+    expect(result.length).toBe(2);
+    const merged = result.find((o) => o.id === 'stack-1');
+    expect(merged?.cardInstances.map((c) => c.instanceId)).toEqual(['inst-0', 'inst-1', 'n1']);
+    expect(result.find((o) => o.id === 'far')).toBeDefined();
+  });
+
+  it('returnToDeck puts a drawn card back on top of its stack', () => {
+    const s = stack(5);
+    const withDraw = drawFromStack(s, [s]);
+    const loose = withDraw.find((o) => o.type === 'card')!;
+    const result = returnToDeck(withDraw, loose);
+    const restored = result.find((o) => o.type === 'stack');
+    expect(restored?.cardInstances.length).toBe(5);
+    expect(result.length).toBe(1);
+  });
+
+  it('returnToDeck recreates a stack when the original is gone', () => {
+    const s = stack(1);
+    const withDraw = drawFromStack(s, [s]); // stack emptied and removed
+    const loose = withDraw.find((o) => o.type === 'card')!;
+    const result = returnToDeck(withDraw, loose);
+    expect(result.length).toBe(1);
+    expect(result[0].type).toBe('stack');
+    expect(result[0].cardInstances.length).toBe(1);
+  });
+
+  it('bringToFront and sendToBack adjust z-order', () => {
+    const a = stack(2);
+    const b: TableObject = { id: 'b', type: 'card', x: 10, y: 10, z: 5, rotationDeg: 0, cardInstances: [] };
+    const front = bringToFront([a, b], 'stack-1');
+    expect(front.find((o) => o.id === 'stack-1')!.z).toBe(6);
+    const back = sendToBack(front, 'stack-1');
+    expect(back.find((o) => o.id === 'stack-1')!.z).toBe(-1);
+  });
+
+  it('duplicateObject creates a copy with fresh object and instance IDs', () => {
+    const s = stack(3);
+    const result = duplicateObject([s], 'stack-1');
+    expect(result.length).toBe(2);
+    const copy = result[1];
+    expect(copy.id).not.toBe(s.id);
+    expect(copy.cardInstances.length).toBe(3);
+    expect(copy.cardInstances.every((c) => !s.cardInstances.some((o) => o.instanceId === c.instanceId))).toBe(true);
+  });
+
+  it('removeObject removes only the target', () => {
+    const s = stack(2);
+    const other: TableObject = { id: 'other', type: 'card', x: 0, y: 0, z: 0, rotationDeg: 0, cardInstances: [] };
+    expect(removeObject([s, other], 'other').length).toBe(1);
   });
 });

@@ -57,7 +57,7 @@ export function App() {
       <main>
         {route.area === 'library' && <LibraryPage navigate={navigate} />}
         {route.area === 'workshop' && <WorkshopPage projectId={route.projectId} />}
-        {route.area === 'table' && <TablePage projectId={route.projectId} />}
+        {route.area === 'table' && <TablePage projectId={route.projectId} navigate={navigate} />}
       </main>
       <footer className="footer">
         <p>
