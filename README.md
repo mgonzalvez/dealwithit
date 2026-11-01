@@ -74,6 +74,17 @@ GitHub Pages deep links never 404.
 - Demo artwork is generated procedurally at runtime — no bundled third-party
   images, no licensing risk.
 
+## Installable & offline (PWA)
+
+Production builds register a service worker that caches the app shell, so
+Deal With It launches offline after the first visit and can be installed from
+iPad Safari (Share → "Add to Home Screen") or Chrome/Edge (install prompt).
+Your cards and projects stay in IndexedDB; nothing is uploaded.
+
+```bash
+npm run icons   # regenerate PNG app icons (192/512)
+```
+
 ## Portable projects
 
 Each project can be exported from the Library as a self-contained

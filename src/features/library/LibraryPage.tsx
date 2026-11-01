@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Button, EmptyState } from '../../components/ui';
+import { Button, Dialog, EmptyState } from '../../components/ui';
 import {
   createProject,
   estimateStorage,
+  getSetting,
   listDecks,
   listProjects,
   loadProjectData,
-  saveProjectData
+  saveProjectData,
+  setSetting
 } from '../../persistence/repositories';
 import { deckCardCount } from '../../domain/deck-operations';
 import { Project } from '../../domain/models';
@@ -24,6 +26,7 @@ export function LibraryPage({ navigate }: { navigate: (hash: string) => void }) 
   const [deckCounts, setDeckCounts] = useState<Record<string, number>>({});
   const [storage, setStorage] = useState<{ usage: number; quota: number } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   async function refresh() {
     const projects = await listProjects();
@@ -39,7 +42,15 @@ export function LibraryPage({ navigate }: { navigate: (hash: string) => void }) 
 
   useEffect(() => {
     void refresh();
+    void getSetting('tutorial-seen').then((seen) => {
+      if (!seen) setShowTutorial(true);
+    });
   }, []);
+
+  function dismissTutorial() {
+    setShowTutorial(false);
+    void setSetting('tutorial-seen', true);
+  }
 
   async function handleCreate() {
     const name = window.prompt('New project name');
@@ -116,6 +127,24 @@ export function LibraryPage({ navigate }: { navigate: (hash: string) => void }) 
         )}
       </p>
       {message && <p className="committed" aria-live="polite">{message}</p>}
+
+      <Dialog title="Welcome to Deal With It" open={showTutorial} onClose={dismissTutorial}>
+        <ol className="tutorial-steps">
+          <li><strong>Library</strong> — your games live here. Create, import or export projects. Everything stays on this device.</li>
+          <li><strong>Workshop</strong> — Upload Images or Import ZIP, then shape cards and build decks. One image or a hundred, mixed in any order.</li>
+          <li><strong>Table</strong> — launch a deck, shuffle, draw, flip, drag and stack. No rules, just cards.</li>
+        </ol>
+        <div className="tutorial-actions">
+          <Button
+            label="Start with demo deck"
+            onClick={() => {
+              dismissTutorial();
+              void handleDemo();
+            }}
+          />
+          <Button label="Got it" variant="secondary" onClick={dismissTutorial} />
+        </div>
+      </Dialog>
 
       {projects.length === 0 ? (
         <EmptyState

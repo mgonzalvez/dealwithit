@@ -140,6 +140,15 @@ export async function saveProjectData(data: ProjectData): Promise<void> {
   for (const table of data.tables) await db.tableStates.put(table);
 }
 
+export async function getSetting(key: string): Promise<unknown> {
+  const record = await db.settings.get(key);
+  return record?.value;
+}
+
+export async function setSetting(key: string, value: unknown): Promise<void> {
+  await db.settings.put({ key, value });
+}
+
 export async function estimateStorage(): Promise<{ usage: number; quota: number }> {
   if (typeof navigator === 'undefined' || !navigator.storage?.estimate) {
     return { usage: 0, quota: 0 };

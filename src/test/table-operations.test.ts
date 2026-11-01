@@ -137,6 +137,15 @@ describe('table draws and shuffles', () => {
     const loose = objects.find((o) => o.type === 'card');
     expect(loose?.sourceDeckId).toBe('deck-1');
   });
+
+  it('draws face-up when the table setting says so', () => {
+    const s = stack(4);
+    const objects = drawFromStack(s, [s], { faceUp: true });
+    const loose = objects.find((o) => o.type === 'card');
+    expect(loose?.cardInstances[0].face).toBe('front');
+    const dealt = dealFromStack(s, [s], 2, { faceUp: true });
+    expect(dealt.filter((o) => o.type === 'card').every((o) => o.cardInstances[0].face === 'front')).toBe(true);
+  });
 });
 
 describe('dealing, stacking and z-order', () => {

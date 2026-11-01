@@ -68,8 +68,17 @@ export function mergeStack(target: TableObject, dropped: TableObject): TableObje
   };
 }
 
-/** Draw 1 from a stack into a loose face-down card offset beside it. */
-export function drawFromStack(stack: TableObject, objects: TableObject[]): TableObject[] {
+export interface DrawOptions {
+  /** Draw face-up instead of the default face-down. */
+  faceUp?: boolean;
+}
+
+/** Draw 1 from a stack into a loose card offset beside it. */
+export function drawFromStack(
+  stack: TableObject,
+  objects: TableObject[],
+  options: DrawOptions = {}
+): TableObject[] {
   const { drawn, remaining } = drawTopFromObject(stack);
   const result = objects.filter((o) => o.id !== stack.id);
   if (remaining.length > 0) {
@@ -83,18 +92,19 @@ export function drawFromStack(stack: TableObject, objects: TableObject[]): Table
       y: stack.y,
       z: stack.z + 1,
       rotationDeg: 0,
-      cardInstances: [drawn],
+      cardInstances: [{ ...drawn, face: options.faceUp ? 'front' : drawn.face }],
       sourceDeckId: stack.sourceDeckId
     });
   }
   return result;
 }
 
-/** Deal N cards from a stack into a face-down grid of loose cards. */
+/** Deal N cards from a stack into a grid of loose cards. */
 export function dealFromStack(
   stack: TableObject,
   objects: TableObject[],
-  n: number
+  n: number,
+  options: DrawOptions = {}
 ): TableObject[] {
   const { dealt, remaining } = dealN(stack.cardInstances, n);
   const result = objects.filter((o) => o.id !== stack.id);
@@ -109,7 +119,7 @@ export function dealFromStack(
       y: stack.y + Math.floor(i / 8) * 90,
       z: stack.z + 1,
       rotationDeg: 0,
-      cardInstances: [instance],
+      cardInstances: [{ ...instance, face: options.faceUp ? 'front' : instance.face }],
       sourceDeckId: stack.sourceDeckId
     });
   });

@@ -3,10 +3,12 @@ import { EmptyState } from '../../components/ui';
 import {
   getProject,
   getImageBlob,
+  getSetting,
   listCardDefinitions,
   listDecks,
   listTables,
   saveTable,
+  setSetting,
   touchProject
 } from '../../persistence/repositories';
 import {
@@ -79,6 +81,7 @@ export function TablePage({
   const [saveStatus, setSaveStatus] = useState('');
   const [trayOpen, setTrayOpen] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [drawFaceUp, setDrawFaceUp] = useState(false);
 
   const tableRef = useRef<TableState | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
@@ -138,6 +141,7 @@ export function TablePage({
     }
     setFaces(faceCache);
     setTable(table);
+    setDrawFaceUp(Boolean(await getSetting(`drawFaceUp:${table.id}`)));
     setLoading(false);
   }
 
@@ -471,14 +475,27 @@ export function TablePage({
     const object = selectedObject();
     const current = tableRef.current;
     if (!object || !current) return;
-    mutate(drawFromStack(object, current.objects));
+    mutate(drawFromStack(object, current.objects, { faceUp: drawFaceUp }));
   }
 
   function dealN(n: number) {
     const object = selectedObject();
     const current = tableRef.current;
     if (!object || !current) return;
-    mutate(dealFromStack(object, current.objects, n));
+    mutate(dealFromStack(object, current.objects, n, { faceUp: drawFaceUp }));
+  }
+
+  function dealPrompt() {
+    const raw = window.prompt('How many cards to deal?', '5');
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) dealN(Math.min(50, n));
+  }
+
+  function changeDrawFaceUp(value: string) {
+    const faceUp = value === 'up';
+    setDrawFaceUp(faceUp);
+    const current = tableRef.current;
+    if (current) void setSetting(`drawFaceUp:${current.id}`, faceUp);
   }
 
   function gatherSelected() {
@@ -568,6 +585,13 @@ export function TablePage({
         <button type="button" className="btn btn-secondary" onClick={redo}>
           Redo
         </button>
+        <label className="bg-picker">
+          Draw
+          <select value={drawFaceUp ? 'up' : 'down'} onChange={(e) => changeDrawFaceUp(e.target.value)}>
+            <option value="down">Face-down</option>
+            <option value="up">Face-up</option>
+          </select>
+        </label>
         <label className="bg-picker">
           Surface
           <select value={table.background} onChange={(e) => setBackground(e.target.value)}>
@@ -742,6 +766,9 @@ export function TablePage({
                   </button>
                   <button type="button" className="btn btn-primary" onClick={() => dealN(3)}>
                     Draw 3
+                  </button>
+                  <button type="button" className="btn btn-secondary" onClick={dealPrompt}>
+                    Deal N…
                   </button>
                   <button type="button" className="btn btn-secondary" onClick={gatherSelected}>
                     Gather
