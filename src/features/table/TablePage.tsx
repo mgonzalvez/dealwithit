@@ -49,7 +49,7 @@ interface Snapshot {
 }
 
 interface DragState {
-  kind: 'object' | 'pan';
+  kind: 'object' | 'pan' | 'stack-draw';
   pointerId: number;
   id?: string;
   dx?: number;
@@ -347,10 +347,16 @@ export function TablePage({
     event.preventDefault();
     event.stopPropagation();
     setSelectedId(object.id);
-    snapshot();
+    // Dragging a stack peels its top card (drag-to-draw). Hold Shift to slide
+    // the whole stack instead.
+    const peel =
+      object.type === 'stack' &&
+      object.cardInstances.length > 1 &&
+      !event.shiftKey;
+    if (!peel) snapshot();
     const world = worldPoint(event.clientX, event.clientY);
     dragRef.current = {
-      kind: 'object',
+      kind: peel ? 'stack-draw' : 'object',
       pointerId: event.pointerId,
       id: object.id,
       dx: object.x - world.x,
@@ -365,7 +371,52 @@ export function TablePage({
 
   function handleObjectPointerMove(event: React.PointerEvent) {
     const drag = dragRef.current;
-    if (!drag || drag.kind !== 'object' || drag.pointerId !== event.pointerId) return;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (drag.kind === 'stack-draw') {
+      // Only peel once the pointer has actually travelled a little, so a
+      // plain click on a stack just selects it.
+      const travelled = Math.hypot(
+        event.clientX - drag.startClientX,
+        event.clientY - drag.startClientY
+      );
+      if (travelled < 8) return;
+      const current = tableRef.current;
+      if (!current) return;
+      const stack = current.objects.find((o) => o.id === drag.id);
+      if (!stack || stack.cardInstances.length === 0) {
+        dragRef.current = null;
+        return;
+      }
+      snapshot();
+      const objects = drawFromStack(stack, current.objects, { faceUp: drawFaceUp });
+      const drawn = objects.find(
+        (o) => o.type === 'card' && !current.objects.some((c) => c.id === o.id)
+      );
+      if (!drawn) {
+        dragRef.current = null;
+        return;
+      }
+      const world = worldPoint(event.clientX, event.clientY);
+      setTable({
+        ...current,
+        objects: objects.map((o) => (o.id === drawn.id ? { ...o, x: world.x, y: world.y } : o)),
+        updatedAt: Date.now()
+      });
+      setSaveStatus('Unsaved');
+      setSelectedId(drawn.id);
+      dragRef.current = {
+        kind: 'object',
+        pointerId: event.pointerId,
+        id: drawn.id,
+        dx: 0,
+        dy: 0,
+        moved: true,
+        startClientX: event.clientX,
+        startClientY: event.clientY
+      };
+      return;
+    }
+    if (drag.kind !== 'object') return;
     const world = worldPoint(event.clientX, event.clientY);
     const current = tableRef.current;
     if (!current) return;
@@ -388,7 +439,12 @@ export function TablePage({
       clearTimeout(longPressRef.current);
       longPressRef.current = null;
     }
-    if (!drag || drag.kind !== 'object' || drag.pointerId !== event.pointerId) return;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (drag.kind !== 'object') {
+      // A click on a stack that never moved: just a selection, no draw.
+      dragRef.current = null;
+      return;
+    }
     const current = tableRef.current;
     if (current && drag.moved) {
       const dragged = current.objects.find((o) => o.id === drag.id);

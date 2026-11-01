@@ -76,6 +76,12 @@ Last updated: 2026-11-01
 4. Table toolbar: Draw face-down/face-up persists per table across reloads.
 5. Deal N… prompts for a count.
 
+## Recent fixes
+
+| Date | Issue | Fix |
+|------|-------|-----|
+| 2026-11-01 | Could not drag a card off a deck on desktop (Mac) — drawing only worked via buttons | Dragging a stack now peels its top card (drag-to-draw): the card follows the pointer, honors the Draw face-up/down setting, and can be dropped anywhere (onto another stack merges it). A click without movement just selects. Hold **Shift** while dragging a stack to slide the whole stack instead. |
+
 ## Known gaps / next steps
 
 1. Playwright E2E (M6+ nice-to-have) — automated tests cover domain logic, import/export and performance budgets.
