@@ -101,3 +101,56 @@ export function incrementEntry(deck: DeckDefinition, entryId: string, by = 1): D
 export function deckCardCount(deck: DeckDefinition): number {
   return deck.entries.reduce((sum, e) => sum + e.quantity, 0);
 }
+
+export function setEntryQuantity(
+  deck: DeckDefinition,
+  entryId: string,
+  quantity: number
+): DeckDefinition {
+  const q = Math.max(1, Math.floor(quantity));
+  return {
+    ...deck,
+    entries: deck.entries.map((e) => (e.id === entryId ? { ...e, quantity: q } : e)),
+    updatedAt: Date.now()
+  };
+}
+
+export function removeEntry(deck: DeckDefinition, entryId: string): DeckDefinition {
+  return { ...deck, entries: deck.entries.filter((e) => e.id !== entryId), updatedAt: Date.now() };
+}
+
+export function moveEntry(deck: DeckDefinition, entryId: string, delta: -1 | 1): DeckDefinition {
+  const index = deck.entries.findIndex((e) => e.id === entryId);
+  if (index < 0) return deck;
+  const target = index + delta;
+  if (target < 0 || target >= deck.entries.length) return deck;
+  const entries = [...deck.entries];
+  [entries[index], entries[target]] = [entries[target], entries[index]];
+  return { ...deck, entries, updatedAt: Date.now() };
+}
+
+export function renameDeck(deck: DeckDefinition, name: string): DeckDefinition {
+  return { ...deck, name: name.trim() || deck.name, updatedAt: Date.now() };
+}
+
+export function setDefaultBack(deck: DeckDefinition, assetId: string | undefined): DeckDefinition {
+  return { ...deck, defaultBackAssetId: assetId, updatedAt: Date.now() };
+}
+
+/** Copy a deck recipe. Entries get fresh IDs but reference the same card definitions (no blob duplication). */
+export function duplicateDeck(deck: DeckDefinition, projectId: string): DeckDefinition {
+  const now = Date.now();
+  return {
+    id: crypto.randomUUID(),
+    projectId,
+    name: `${deck.name} (copy)`,
+    entries: deck.entries.map((e) => ({
+      id: crypto.randomUUID(),
+      cardDefinitionId: e.cardDefinitionId,
+      quantity: e.quantity
+    })),
+    defaultBackAssetId: deck.defaultBackAssetId,
+    createdAt: now,
+    updatedAt: now
+  };
+}

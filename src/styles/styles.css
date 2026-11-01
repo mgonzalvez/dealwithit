@@ -486,6 +486,311 @@ main {
   font-size: 0.9rem;
 }
 
+.workshop-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 14px 0;
+  flex-wrap: wrap;
+}
+
+.tab {
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.tab.active {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+
+.save-status {
+  color: var(--accent);
+  font-size: 0.85rem;
+}
+
+.card-grid-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 10px 0;
+  flex-wrap: wrap;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.card-grid-item {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--surface);
+  flex-wrap: wrap;
+}
+
+.card-grid-item.active {
+  border-color: var(--accent);
+}
+
+.card-grid-item img {
+  width: 60px;
+  height: 84px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.card-grid-meta {
+  flex: 1;
+  min-width: 120px;
+}
+
+.card-grid-meta .muted {
+  font-size: 0.75rem;
+}
+
+.card-editor {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-top: 16px;
+}
+
+@media (max-width: 900px) {
+  .card-editor {
+    grid-template-columns: 1fr;
+  }
+}
+
+.card-editor-preview canvas {
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.card-editor-face-toggle {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.card-editor-face-toggle .active {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.card-editor-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 110px;
+}
+
+.card-editor-controls input,
+.card-editor-controls select {
+  min-height: 40px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.control-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 10px 0;
+}
+
+.deck-builder {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+@media (max-width: 900px) {
+  .deck-builder {
+    grid-template-columns: 1fr;
+  }
+}
+
+.deck-list {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+
+.deck-list-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.deck-list-item {
+  min-height: 44px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 10px;
+}
+
+.deck-list-item.active {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+
+.deck-count {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.deck-create {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.deck-create input {
+  min-height: 44px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.deck-detail {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+
+.deck-detail-header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.deck-detail-header input {
+  min-height: 44px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  flex: 1;
+  min-width: 160px;
+}
+
+.deck-detail-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 10px 0;
+}
+
+.deck-detail-row label {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.deck-entries {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.deck-entry {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  flex-wrap: wrap;
+}
+
+.deck-entry-thumb {
+  width: 44px;
+  height: 62px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.deck-entry-name {
+  flex: 1;
+  min-width: 120px;
+}
+
+.qty-control {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.qty-control .btn {
+  min-height: 36px;
+  min-width: 36px;
+  padding: 6px 10px;
+}
+
+.qty-control span {
+  min-width: 24px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.entry-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.table-cta {
+  margin-top: 14px;
+}
+
+.asset-browser-header-extra {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 @media (max-width: 767px) {
   .topbar {
     flex-wrap: wrap;

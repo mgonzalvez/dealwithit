@@ -4,9 +4,13 @@ import {
   createDeck,
   deckCardCount,
   dealN,
+  duplicateDeck,
   drawTop,
   incrementEntry,
+  moveEntry,
   randomInt,
+  removeEntry,
+  setEntryQuantity,
   shuffleInstances
 } from '../domain/deck-operations';
 import { CardInstance } from '../domain/models';
@@ -87,6 +91,48 @@ describe('deck recipes', () => {
     const incremented = incrementEntry(d, d.entries[0].id, 2);
     expect(deckCardCount(incremented)).toBe(3);
     expect(incremented.entries[0].id).toBe(d.entries[0].id);
+  });
+
+  it('moveEntry reorders entries', () => {
+    const deck = createDeck('p', 'Main');
+    let d = addEntryToDeck(deck, 'a', 1);
+    d = addEntryToDeck(d, 'b', 1);
+    d = addEntryToDeck(d, 'c', 1);
+    const ids = d.entries.map((e) => e.cardDefinitionId);
+    expect(ids).toEqual(['a', 'b', 'c']);
+    const targetId = d.entries[1].id;
+    const moved = moveEntry(d, targetId, -1);
+    expect(moved.entries.map((e) => e.cardDefinitionId)).toEqual(['b', 'a', 'c']);
+    const noOp = moveEntry(moved, moved.entries[0].id, -1);
+    expect(noOp.entries.map((e) => e.cardDefinitionId)).toEqual(['b', 'a', 'c']);
+  });
+
+  it('setEntryQuantity clamps to at least 1', () => {
+    const deck = createDeck('p', 'Main');
+    const d = addEntryToDeck(deck, 'a', 3);
+    expect(deckCardCount(setEntryQuantity(d, d.entries[0].id, 0))).toBe(1);
+    expect(deckCardCount(setEntryQuantity(d, d.entries[0].id, 7))).toBe(7);
+  });
+
+  it('removeEntry drops the entry only', () => {
+    const deck = createDeck('p', 'Main');
+    let d = addEntryToDeck(deck, 'a', 2);
+    d = addEntryToDeck(d, 'b', 3);
+    const removed = removeEntry(d, d.entries[0].id);
+    expect(removed.entries.length).toBe(1);
+    expect(deckCardCount(removed)).toBe(3);
+  });
+
+  it('duplicateDeck copies the recipe with fresh IDs and no blob duplication', () => {
+    const deck = createDeck('p', 'Main');
+    const d = addEntryToDeck(deck, 'a', 4);
+    const copy = duplicateDeck(d, 'p');
+    expect(copy.id).not.toBe(d.id);
+    expect(copy.name).toBe('Main (copy)');
+    expect(copy.entries.length).toBe(1);
+    expect(copy.entries[0].id).not.toBe(d.entries[0].id);
+    expect(copy.entries[0].cardDefinitionId).toBe('a');
+    expect(copy.entries[0].quantity).toBe(4);
   });
 
   it('table operations never mutate the deck recipe', () => {

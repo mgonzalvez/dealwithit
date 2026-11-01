@@ -1,32 +1,54 @@
 import { useEffect, useState } from 'react';
-import { Dialog, EmptyState } from '../../components/ui';
+import { Button, Dialog, EmptyState } from '../../components/ui';
 import {
+  deleteCardDefinition,
+  deleteDeck,
   ensureCardFromAsset,
   getProject,
   getImageBlob,
+  listCardDefinitions,
   listDecks,
   listImageAssets,
   listThumbnails,
+  saveCardDefinition,
   saveDeck,
   saveImageAsset,
   saveThumbnail,
   touchProject
 } from '../../persistence/repositories';
-import { addEntryToDeck, createDeck } from '../../domain/deck-operations';
-import { DeckDefinition, ImageAsset, Project } from '../../domain/models';
+import {
+  addEntryToDeck,
+  createDeck,
+  deckCardCount,
+  duplicateDeck,
+  moveEntry,
+  renameDeck,
+  removeEntry,
+  setDefaultBack,
+  setEntryQuantity
+} from '../../domain/deck-operations';
+import { rotateTransform } from '../../domain/transforms';
+import { CardDefinition, DeckDefinition, ImageAsset, Project } from '../../domain/models';
 import { ImportDestination, ImportStaging } from '../import/ImportStaging';
 import { AssetBrowser } from '../import/AssetBrowser';
 import { commitStagedItems, stageEntries, ImportEntry, StagedItem } from '../import/pipeline';
 import { parseImageZip, PairingInfo } from '../import/zipImport';
 import { makeThumbnail, probeImage } from '../import/imageMeta';
+import { CardEditor } from './CardEditor';
+import { DeckBuilder } from './DeckBuilder';
+
+type WorkshopTab = 'import' | 'cards' | 'decks';
 
 /**
- * Workshop M1: Upload Images and Import ZIP are equal first-class entry
- * points. Drag/drop works anywhere in the Workshop and clipboard paste where
- * supported. Both paths feed the same staging/validation pipeline.
+ * Workshop (M1 + M2): import images/ZIPs, build card definitions with
+ * transforms and physical sizes, and assemble deck recipes. Everything
+ * autosaves to IndexedDB.
  */
 export function WorkshopPage({ projectId }: { projectId?: string }) {
   const [project, setProject] = useState<Project | null>(null);
+  const [tab, setTab] = useState<WorkshopTab>('import');
+
+  // Import state
   const [staged, setStaged] = useState<StagedItem[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
@@ -38,28 +60,36 @@ export function WorkshopPage({ projectId }: { projectId?: string }) {
   const [draftName, setDraftName] = useState('Draft deck');
   const [existingDeckId, setExistingDeckId] = useState('');
   const [committedMessage, setCommittedMessage] = useState<string | null>(null);
+
+  // Library / cards / decks
   const [assets, setAssets] = useState<ImageAsset[]>([]);
   const [thumbnails, setThumbnails] = useState<Map<string, string>>(new Map());
+  const [cards, setCards] = useState<CardDefinition[]>([]);
   const [decks, setDecks] = useState<DeckDefinition[]>([]);
   const [search, setSearch] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const [preview, setPreview] = useState<{ asset: ImageAsset; url: string } | null>(null);
-  const [addDeckOpen, setAddDeckOpen] = useState(false);
-  const [addDeckName, setAddDeckName] = useState('New deck');
   const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(new Set());
+  const [selectedCardIds, setSelectedCardIds] = useState<Set<string>>(new Set());
+  const [activeCardId, setActiveCardId] = useState<string | null>(null);
+  const [activeDeckId, setActiveDeckId] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
 
   async function refresh() {
     if (!projectId) return;
-    const [project, assets, decks, thumbnails] = await Promise.all([
+    const [project, assets, decks, thumbnails, cards] = await Promise.all([
       getProject(projectId),
       listImageAssets(projectId),
       listDecks(projectId),
-      listThumbnails(projectId)
+      listThumbnails(projectId),
+      listCardDefinitions(projectId)
     ]);
     setProject(project ?? null);
     setAssets(assets);
     setDecks(decks);
     setThumbnails(new Map(thumbnails.map((t) => [t.assetId, t.dataUrl])));
+    setCards(cards);
+    if (decks.length > 0 && !activeDeckId) setActiveDeckId(decks[0].id);
     if (decks.length > 0 && !existingDeckId) setExistingDeckId(decks[0].id);
   }
 
@@ -78,6 +108,11 @@ export function WorkshopPage({ projectId }: { projectId?: string }) {
     document.addEventListener('paste', handlePaste);
     return () => document.removeEventListener('paste', handlePaste);
   }, [projectId]);
+
+  function markSaved() {
+    setSaveStatus('Saved ✓');
+    setTimeout(() => setSaveStatus(null), 2000);
+  }
 
   async function handleFiles(files: File[]) {
     if (!projectId || busy) return;
@@ -113,7 +148,6 @@ export function WorkshopPage({ projectId }: { projectId?: string }) {
         ];
       }
 
-      // Stage in small batches so a 100-file import never freezes the UI.
       for (let i = 0; i < entries.length; i += 20) {
         if (cancelled) break;
         const chunk = entries.slice(i, i + 20);
@@ -174,11 +208,16 @@ export function WorkshopPage({ projectId }: { projectId?: string }) {
           ? createDeck(projectId, draftName.trim() || 'Draft deck')
           : decks.find((d) => d.id === existingDeckId) ?? null;
       if (deck) {
+        if (pairing?.sharedBack) {
+          const sharedAsset = created.find((a) => a.filename === pairing.sharedBack!.split('/').pop());
+          if (sharedAsset) deck = setDefaultBack(deck, sharedAsset.id);
+        }
         for (const asset of created) {
           const card = await ensureCardFromAsset(projectId, asset.id, stripExtension(asset.filename));
           deck = addEntryToDeck(deck, card.id, 1);
         }
         await saveDeck(deck);
+        setActiveDeckId(deck.id);
       }
     }
 
@@ -212,20 +251,89 @@ export function WorkshopPage({ projectId }: { projectId?: string }) {
     setPreview(null);
   }
 
-  async function addSelectedToDeck() {
+  async function createCardsFromSelectedAssets() {
     if (!projectId) return;
-    const chosen = assets.filter((asset) => selectedAssetIds.has(asset.id));
-    if (chosen.length === 0) return;
-    let deck =
-      decks.find((d) => d.id === existingDeckId) ?? createDeck(projectId, addDeckName.trim() || 'New deck');
-    for (const asset of chosen) {
-      const card = await ensureCardFromAsset(projectId, asset.id, stripExtension(asset.filename));
-      deck = addEntryToDeck(deck, card.id, 1);
+    for (const assetId of selectedAssetIds) {
+      const asset = assets.find((a) => a.id === assetId);
+      if (asset) await ensureCardFromAsset(projectId, assetId, stripExtension(asset.filename));
     }
-    await saveDeck(deck);
-    await touchProject(projectId);
-    setAddDeckOpen(false);
     setSelectedAssetIds(new Set());
+    await refresh();
+    setTab('cards');
+  }
+
+  async function batchRotateSelected() {
+    if (!projectId) return;
+    for (const card of cards) {
+      if (!selectedCardIds.has(card.id)) continue;
+      await saveCardDefinition({ ...card, frontTransform: rotateTransform(card.frontTransform, 90) });
+    }
+    await touchProject(projectId);
+    markSaved();
+    await refresh();
+  }
+
+  async function saveCard(card: CardDefinition) {
+    if (!projectId) return;
+    await saveCardDefinition(card);
+    await touchProject(projectId);
+    markSaved();
+    setCards((current) => current.map((c) => (c.id === card.id ? card : c)));
+  }
+
+  async function deleteCard(card: CardDefinition) {
+    if (!window.confirm(`Delete card definition "${card.name}"? The image stays in the library.`)) return;
+    await deleteCardDefinition(card.id);
+    for (const deck of decks) {
+      const updated = removeEntry(deck, deck.entries.find((e) => e.cardDefinitionId === card.id)?.id ?? '');
+      await saveDeck(updated);
+    }
+    setCards((current) => current.filter((c) => c.id !== card.id));
+    setActiveCardId(null);
+    markSaved();
+    await refresh();
+  }
+
+  async function createDeckNamed(name: string) {
+    if (!projectId) return;
+    const deck = createDeck(projectId, name);
+    await saveDeck(deck);
+    setActiveDeckId(deck.id);
+    markSaved();
+    await refresh();
+  }
+
+  async function updateDeck(deck: DeckDefinition) {
+    await saveDeck({ ...deck, updatedAt: Date.now() });
+    markSaved();
+    setDecks((current) => current.map((d) => (d.id === deck.id ? { ...deck, updatedAt: Date.now() } : d)));
+  }
+
+  async function duplicateDeckAction(deck: DeckDefinition) {
+    if (!projectId) return;
+    const copy = duplicateDeck(deck, projectId);
+    await saveDeck(copy);
+    setActiveDeckId(copy.id);
+    markSaved();
+    await refresh();
+  }
+
+  async function deleteDeckAction(deck: DeckDefinition) {
+    if (!window.confirm(`Delete deck "${deck.name}"? Card definitions and images are not removed.`)) return;
+    await deleteDeck(deck.id);
+    setActiveDeckId(null);
+    markSaved();
+    await refresh();
+  }
+
+  async function addSelectedCardsToDeck(deck: DeckDefinition) {
+    let updated = deck;
+    for (const cardId of selectedCardIds) {
+      updated = addEntryToDeck(updated, cardId, 1);
+    }
+    await saveDeck(updated);
+    setSelectedCardIds(new Set());
+    markSaved();
     await refresh();
   }
 
@@ -240,6 +348,8 @@ export function WorkshopPage({ projectId }: { projectId?: string }) {
       </section>
     );
   }
+
+  const activeCard = cards.find((c) => c.id === activeCardId) ?? null;
 
   return (
     <section
@@ -256,106 +366,199 @@ export function WorkshopPage({ projectId }: { projectId?: string }) {
       }}
     >
       <h1>Workshop{project ? ` — ${project.name}` : ''}</h1>
+      {saveStatus && <p className="save-status">{saveStatus}</p>}
 
-      <div className="import-actions">
-        <label className="btn btn-primary import-action">
-          Upload Images
-          <input
-            type="file"
-            multiple
-            accept="image/png,image/jpeg,image/webp"
-            onChange={(e) => void handleFiles(Array.from(e.target.files ?? []))}
-          />
-        </label>
-        <label className="btn btn-primary import-action">
-          Import ZIP
-          <input
-            type="file"
-            accept=".zip,application/zip"
-            onChange={(e) => void handleFiles(Array.from(e.target.files ?? []))}
-          />
-        </label>
-        <a
-          className="btn btn-secondary import-action"
-          href="https://extractor.gonzhome.us"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Use Card Extractor
-        </a>
-      </div>
-      <p className="muted">
-        You can also drag images anywhere into this page, or paste an image from the clipboard.
-        One image, a hundred, or any mix — repeat as often as you like.
-      </p>
-
-      <ImportStaging
-        items={staged}
-        selected={selected}
-        onToggle={(key) =>
-          setSelected((current) => {
-            const next = new Set(current);
-            if (next.has(key)) next.delete(key);
-            else next.add(key);
-            return next;
-          })
-        }
-        onSelectAllValid={() =>
-          setSelected(
-            new Set(staged.filter((item) => item.status === 'valid').map((item) => item.key))
-          )
-        }
-        onDeselectAll={() => setSelected(new Set())}
-        busy={busy}
-        progress={progress}
-        zipErrors={zipErrors}
-        pairing={pairing}
-        onCommit={() => void handleCommit()}
-        onCancel={handleCancel}
-        destination={destination}
-        setDestination={setDestination}
-        draftName={draftName}
-        setDraftName={setDraftName}
-        existingDeckId={existingDeckId}
-        setExistingDeckId={setExistingDeckId}
-        decks={decks}
-        committedMessage={committedMessage}
-      />
-
-      <AssetBrowser
-        assets={assets}
-        thumbnails={thumbnails}
-        search={search}
-        onSearch={setSearch}
-        selected={selectedAssetIds}
-        onToggle={(assetId) =>
-          setSelectedAssetIds((current) => {
-            const next = new Set(current);
-            if (next.has(assetId)) next.delete(assetId);
-            else next.add(assetId);
-            return next;
-          })
-        }
-        onPreview={handlePreview}
-        onAddSelectedToDeck={() => setAddDeckOpen(true)}
-        selectedCount={selectedAssetIds.size}
-      />
-
-      <Dialog title="Add selected images to a deck" open={addDeckOpen} onClose={() => setAddDeckOpen(false)}>
-        <label>
-          New deck name
-          <input type="text" value={addDeckName} onChange={(e) => setAddDeckName(e.target.value)} />
-        </label>
-        <p className="muted">Or use the deck selected in the staging panel above.</p>
-        <button type="button" className="btn btn-primary" onClick={() => void addSelectedToDeck()}>
-          Add to deck
+      <nav className="workshop-tabs" aria-label="Workshop sections">
+        <button type="button" className={`tab ${tab === 'import' ? 'active' : ''}`} onClick={() => setTab('import')}>
+          Import
         </button>
-      </Dialog>
+        <button type="button" className={`tab ${tab === 'cards' ? 'active' : ''}`} onClick={() => setTab('cards')}>
+          Cards ({cards.length})
+        </button>
+        <button type="button" className={`tab ${tab === 'decks' ? 'active' : ''}`} onClick={() => setTab('decks')}>
+          Decks ({decks.reduce((sum, d) => sum + deckCardCount(d), 0)} cards)
+        </button>
+      </nav>
+
+      {tab === 'import' && (
+        <>
+          <div className="import-actions">
+            <label className="btn btn-primary import-action">
+              Upload Images
+              <input
+                type="file"
+                multiple
+                accept="image/png,image/jpeg,image/webp"
+                onChange={(e) => void handleFiles(Array.from(e.target.files ?? []))}
+              />
+            </label>
+            <label className="btn btn-primary import-action">
+              Import ZIP
+              <input
+                type="file"
+                accept=".zip,application/zip"
+                onChange={(e) => void handleFiles(Array.from(e.target.files ?? []))}
+              />
+            </label>
+            <a
+              className="btn btn-secondary import-action"
+              href="https://extractor.gonzhome.us"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Use Card Extractor
+            </a>
+          </div>
+          <p className="muted">
+            You can also drag images anywhere into this page, or paste an image from the clipboard.
+            One image, a hundred, or any mix — repeat as often as you like.
+          </p>
+
+          <ImportStaging
+            items={staged}
+            selected={selected}
+            onToggle={(key) =>
+              setSelected((current) => {
+                const next = new Set(current);
+                if (next.has(key)) next.delete(key);
+                else next.add(key);
+                return next;
+              })
+            }
+            onSelectAllValid={() =>
+              setSelected(new Set(staged.filter((item) => item.status === 'valid').map((item) => item.key)))
+            }
+            onDeselectAll={() => setSelected(new Set())}
+            busy={busy}
+            progress={progress}
+            zipErrors={zipErrors}
+            pairing={pairing}
+            onCommit={() => void handleCommit()}
+            onCancel={handleCancel}
+            destination={destination}
+            setDestination={setDestination}
+            draftName={draftName}
+            setDraftName={setDraftName}
+            existingDeckId={existingDeckId}
+            setExistingDeckId={setExistingDeckId}
+            decks={decks}
+            committedMessage={committedMessage}
+          />
+
+          <div className="asset-browser-header-extra">
+            <Button
+              label="Create cards from selected images"
+              variant="secondary"
+              onClick={() => void createCardsFromSelectedAssets()}
+              disabled={selectedAssetIds.size === 0}
+            />
+          </div>
+          <AssetBrowser
+            assets={assets}
+            thumbnails={thumbnails}
+            search={search}
+            onSearch={setSearch}
+            selected={selectedAssetIds}
+            onToggle={(assetId) =>
+              setSelectedAssetIds((current) => {
+                const next = new Set(current);
+                if (next.has(assetId)) next.delete(assetId);
+                else next.add(assetId);
+                return next;
+              })
+            }
+            onPreview={handlePreview}
+            onAddSelectedToDeck={() => setTab('decks')}
+            selectedCount={selectedAssetIds.size}
+          />
+        </>
+      )}
+
+      {tab === 'cards' && (
+        <>
+          <div className="card-grid-actions">
+            <Button
+              label="Rotate selected 90°"
+              variant="secondary"
+              onClick={() => void batchRotateSelected()}
+              disabled={selectedCardIds.size === 0}
+            />
+            <span className="muted">{selectedCardIds.size} selected</span>
+          </div>
+          {cards.length === 0 ? (
+            <EmptyState
+              title="No card definitions yet"
+              message="Import images, then create cards from them. Cards reference images non-destructively."
+            />
+          ) : (
+            <div className="card-grid">
+              {cards.map((card) => (
+                <div key={card.id} className={`card-grid-item ${card.id === activeCardId ? 'active' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={selectedCardIds.has(card.id)}
+                    onChange={() =>
+                      setSelectedCardIds((current) => {
+                        const next = new Set(current);
+                        if (next.has(card.id)) next.delete(card.id);
+                        else next.add(card.id);
+                        return next;
+                      })
+                    }
+                    aria-label={`Select ${card.name}`}
+                  />
+                  {thumbnails.get(card.frontAssetId) ? (
+                    <img src={thumbnails.get(card.frontAssetId)} alt="" />
+                  ) : (
+                    <span className="placeholder">{card.name}</span>
+                  )}
+                  <div className="card-grid-meta">
+                    <strong>{card.name}</strong>
+                    <span className="muted">
+                      {card.widthMm}×{card.heightMm} mm · {card.frontTransform.rotationDeg}° ·{' '}
+                      {card.backAssetId ? 'custom back' : 'no back'}
+                    </span>
+                  </div>
+                  <Button label="Edit" variant="secondary" onClick={() => setActiveCardId(card.id)} />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {activeCard && (
+            <CardEditor
+              card={activeCard}
+              assets={assets}
+              onSave={(card) => void saveCard(card)}
+              onDelete={deleteCard}
+            />
+          )}
+        </>
+      )}
+
+      {tab === 'decks' && (
+        <DeckBuilder
+          decks={decks}
+          activeDeckId={activeDeckId}
+          setActiveDeckId={setActiveDeckId}
+          onCreate={createDeckNamed}
+          onRename={(deck, name) => void updateDeck(renameDeck(deck, name))}
+          onDuplicate={duplicateDeckAction}
+          onDelete={deleteDeckAction}
+          onSetDefaultBack={(deck, assetId) => void updateDeck(setDefaultBack(deck, assetId))}
+          onQuantity={(deck, entryId, quantity) => void updateDeck(setEntryQuantity(deck, entryId, quantity))}
+          onMove={(deck, entryId, delta) => void updateDeck(moveEntry(deck, entryId, delta))}
+          onRemove={(deck, entryId) => void updateDeck(removeEntry(deck, entryId))}
+          onAddSelectedCards={(deck) => void addSelectedCardsToDeck(deck)}
+          cards={cards}
+          selectedCardIds={selectedCardIds}
+          assets={assets}
+          thumbnails={thumbnails}
+        />
+      )}
 
       <Dialog title={preview?.asset.filename ?? 'Preview'} open={preview !== null} onClose={closePreview}>
-        {preview && (
-          <img src={preview.url} alt={preview.asset.filename} className="preview-image" />
-        )}
+        {preview && <img src={preview.url} alt={preview.asset.filename} className="preview-image" />}
       </Dialog>
     </section>
   );

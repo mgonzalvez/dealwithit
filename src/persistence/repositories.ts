@@ -62,6 +62,14 @@ export async function saveDeck(deck: DeckDefinition): Promise<void> {
   await db.deckDefinitions.put(deck);
 }
 
+export async function deleteDeck(deckId: string): Promise<void> {
+  await db.deckDefinitions.delete(deckId);
+}
+
+export async function deleteCardDefinition(cardId: string): Promise<void> {
+  await db.cardDefinitions.delete(cardId);
+}
+
 export function listDecks(projectId: string): Promise<DeckDefinition[]> {
   return db.deckDefinitions.where('projectId').equals(projectId).toArray();
 }
