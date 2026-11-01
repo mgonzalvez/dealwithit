@@ -12,8 +12,9 @@ interface BlobRecord {
   blob: Blob;
 }
 
-interface ThumbnailRecord {
+export interface ThumbnailRecord {
   assetId: string;
+  projectId: string;
   dataUrl: string;
   widthPx: number;
   heightPx: number;

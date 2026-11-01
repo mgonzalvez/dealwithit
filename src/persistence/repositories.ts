@@ -1,4 +1,4 @@
-import { db } from './db';
+import { db, ThumbnailRecord } from './db';
 import {
   CardDefinition,
   DeckDefinition,
@@ -72,6 +72,37 @@ export async function saveTable(table: TableState): Promise<void> {
 
 export function listTables(projectId: string): Promise<TableState[]> {
   return db.tableStates.where('projectId').equals(projectId).toArray();
+}
+
+export async function saveThumbnail(record: ThumbnailRecord): Promise<void> {
+  await db.thumbnails.put(record);
+}
+
+export function listThumbnails(projectId: string): Promise<ThumbnailRecord[]> {
+  return db.thumbnails.where('projectId').equals(projectId).toArray();
+}
+
+export async function ensureCardFromAsset(
+  projectId: string,
+  assetId: string,
+  name: string
+): Promise<CardDefinition> {
+  const existing = await db.cardDefinitions
+    .filter((card) => card.projectId === projectId && card.frontAssetId === assetId)
+    .first();
+  if (existing) return existing;
+  const card: CardDefinition = {
+    id: crypto.randomUUID(),
+    projectId,
+    name,
+    frontAssetId: assetId,
+    frontTransform: { rotationDeg: 0, scale: 1, offsetX: 0, offsetY: 0, fit: 'contain' },
+    widthMm: 63.5,
+    heightMm: 88.9,
+    tags: []
+  };
+  await db.cardDefinitions.add(card);
+  return card;
 }
 
 export async function estimateStorage(): Promise<{ usage: number; quota: number }> {
