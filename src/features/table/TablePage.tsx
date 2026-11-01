@@ -41,6 +41,7 @@ import { loadImage, renderCardPreview } from '../workshop/cardRenderer';
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 3;
 const MM_TO_UNITS = 2; // 1 mm = 2 logical table units
+const HOLD_TO_GRAB_MS = 700; // hold a stack this long to move the whole deck
 
 interface Snapshot {
   objects: TableObject[];
@@ -58,6 +59,12 @@ interface DragState {
   startClientX: number;
   startClientY: number;
   startCamera?: { x: number; y: number; zoom: number };
+}
+
+interface MenuState {
+  id: string;
+  left: number;
+  top: number;
 }
 
 /**
@@ -82,12 +89,14 @@ export function TablePage({
   const [trayOpen, setTrayOpen] = useState(true);
   const [loading, setLoading] = useState(true);
   const [drawFaceUp, setDrawFaceUp] = useState(false);
+  const [menu, setMenu] = useState<MenuState | null>(null);
+  const [grabbingId, setGrabbingId] = useState<string | null>(null);
 
   const tableRef = useRef<TableState | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const spaceRef = useRef(false);
-  const longPressRef = useRef<number | null>(null);
+  const grabTimerRef = useRef<number | null>(null);
   const pastRef = useRef<Snapshot[]>([]);
   const futureRef = useRef<Snapshot[]>([]);
   const fittedRef = useRef(false);
@@ -180,6 +189,10 @@ export function TablePage({
     function onKeyDown(event: KeyboardEvent) {
       const target = event.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') return;
+      if (event.key === 'Escape') {
+        setMenu(null);
+        return;
+      }
       if (event.key === ' ') {
         spaceRef.current = true;
         event.preventDefault();
@@ -276,12 +289,91 @@ export function TablePage({
     });
   }
 
-  function fitView() {
+  /** Smoothly tween the camera to a target over ~260 ms. */
+  function animateCamera(target: { x: number; y: number; zoom: number }, duration = 260) {
+    const current = tableRef.current;
+    if (!current) return;
+    const start = { ...current.camera };
+    const t0 = performance.now();
+    const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+    const step = (now: number) => {
+      const t = Math.min(1, (now - t0) / duration);
+      const k = ease(t);
+      setCamera({
+        x: start.x + (target.x - start.x) * k,
+        y: start.y + (target.y - start.y) * k,
+        zoom: start.zoom + (target.zoom - start.zoom) * k
+      });
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  function contentBounds() {
+    const current = tableRef.current;
+    if (!current || current.objects.length === 0) return null;
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const object of current.objects) {
+      const top = object.cardInstances[object.cardInstances.length - 1];
+      const { w, h } = cardSize(top ? cards.get(top.cardDefinitionId) : undefined);
+      minX = Math.min(minX, object.x - w / 2);
+      minY = Math.min(minY, object.y - h / 2);
+      maxX = Math.max(maxX, object.x + w / 2);
+      maxY = Math.max(maxY, object.y + h / 2);
+    }
+    return { minX, minY, maxX, maxY };
+  }
+
+  /** Fit the camera to the cards on the table (or a comfortable default). */
+  function fitView(animate = true) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const zoom = Math.min(rect.width / TABLE_WIDTH, rect.height / TABLE_HEIGHT);
-    setCamera({ x: 0, y: 0, zoom: Math.max(MIN_ZOOM, zoom) });
+    const bounds = contentBounds();
+    if (!bounds) {
+      const zoom = 1;
+      const target = {
+        x: rect.width / 2 - (TABLE_WIDTH / 2) * zoom,
+        y: rect.height / 2 - (TABLE_HEIGHT / 2) * zoom,
+        zoom
+      };
+      if (animate) animateCamera(target);
+      else setCamera(target);
+      return;
+    }
+    const padding = 60;
+    const w = bounds.maxX - bounds.minX + padding * 2;
+    const h = bounds.maxY - bounds.minY + padding * 2;
+    const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.min(rect.width / w, rect.height / h, 1.5)));
+    const centerX = (bounds.minX + bounds.maxX) / 2;
+    const centerY = (bounds.minY + bounds.maxY) / 2;
+    const target = {
+      x: rect.width / 2 - centerX * zoom,
+      y: rect.height / 2 - centerY * zoom,
+      zoom
+    };
+    if (animate) animateCamera(target);
+    else setCamera(target);
+  }
+
+  function quickZoom(factor: number) {
+    const canvas = canvasRef.current;
+    const current = tableRef.current;
+    if (!canvas || !current) return;
+    const rect = canvas.getBoundingClientRect();
+    const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, current.camera.zoom * factor));
+    const worldCenter = {
+      x: (rect.width / 2 - current.camera.x) / current.camera.zoom,
+      y: (rect.height / 2 - current.camera.y) / current.camera.zoom
+    };
+    animateCamera({
+      x: rect.width / 2 - worldCenter.x * zoom,
+      y: rect.height / 2 - worldCenter.y * zoom,
+      zoom
+    });
   }
 
   // Wheel zoom + pinch gestures.
@@ -365,8 +457,20 @@ export function TablePage({
       startClientX: event.clientX,
       startClientY: event.clientY
     };
+    setMenu(null);
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-    longPressRef.current = window.setTimeout(() => setSelectedId(object.id), 600);
+    if (peel) {
+      // Hold still for a beat and the whole stack comes with you.
+      if (grabTimerRef.current) clearTimeout(grabTimerRef.current);
+      grabTimerRef.current = window.setTimeout(() => {
+        const drag = dragRef.current;
+        if (drag && drag.kind === 'stack-draw' && !drag.moved) {
+          snapshot();
+          dragRef.current = { ...drag, kind: 'object' };
+          setGrabbingId(object.id);
+        }
+      }, HOLD_TO_GRAB_MS);
+    }
   }
 
   function handleObjectPointerMove(event: React.PointerEvent) {
@@ -380,6 +484,10 @@ export function TablePage({
         event.clientY - drag.startClientY
       );
       if (travelled < 8) return;
+      if (grabTimerRef.current) {
+        clearTimeout(grabTimerRef.current);
+        grabTimerRef.current = null;
+      }
       const current = tableRef.current;
       if (!current) return;
       const stack = current.objects.find((o) => o.id === drag.id);
@@ -427,18 +535,15 @@ export function TablePage({
       ...current,
       objects: current.objects.map((o) => (o.id === drag.id ? { ...o, x, y } : o))
     });
-    if (longPressRef.current) {
-      clearTimeout(longPressRef.current);
-      longPressRef.current = null;
-    }
   }
 
   function handleObjectPointerUp(event: React.PointerEvent) {
     const drag = dragRef.current;
-    if (longPressRef.current) {
-      clearTimeout(longPressRef.current);
-      longPressRef.current = null;
+    if (grabTimerRef.current) {
+      clearTimeout(grabTimerRef.current);
+      grabTimerRef.current = null;
     }
+    setGrabbingId(null);
     if (!drag || drag.pointerId !== event.pointerId) return;
     if (drag.kind !== 'object') {
       // A click on a stack that never moved: just a selection, no draw.
@@ -470,6 +575,7 @@ export function TablePage({
   }
 
   function handleCanvasPointerDown(event: React.PointerEvent) {
+    if (menu) setMenu(null);
     if (dragRef.current) return;
     startPan(event);
   }
@@ -491,6 +597,7 @@ export function TablePage({
   function launch(deck: DeckDefinition) {
     const current = tableRef.current;
     if (!current) return;
+    const wasEmpty = current.objects.length === 0;
     const stack = launchDeck(
       deck.entries,
       deck.id,
@@ -499,10 +606,37 @@ export function TablePage({
       TABLE_HEIGHT / 2 - (current.objects.length % 4) * 90
     );
     mutate([...current.objects, stack]);
+    if (wasEmpty) {
+      // First deck on an empty table: zoom in on it instead of the whole felt.
+      setTimeout(() => fitView(), 60);
+    }
   }
 
   function selectedObject(): TableObject | undefined {
     return tableRef.current?.objects.find((o) => o.id === selectedId);
+  }
+
+  /** Apply an action to an object by id (used by the context menu). */
+  function applyTo(id: string, fn: (objects: TableObject[], object: TableObject) => TableObject[]) {
+    const current = tableRef.current;
+    if (!current) return;
+    const object = current.objects.find((o) => o.id === id);
+    if (!object) return;
+    mutate(fn(current.objects, object));
+    setMenu(null);
+  }
+
+  function openContextMenu(event: React.MouseEvent, object: TableObject) {
+    event.preventDefault();
+    setSelectedId(object.id);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    setMenu({
+      id: object.id,
+      left: Math.min(Math.max(8, event.clientX - rect.left), rect.width - 220),
+      top: Math.min(Math.max(8, event.clientY - rect.top), rect.height - 240)
+    });
   }
 
   function peekTop(object: TableObject) {
@@ -659,7 +793,7 @@ export function TablePage({
           </select>
         </label>
         <button type="button" className="btn btn-secondary" onClick={resetTable}>
-          Reset table
+          Clear table
         </button>
         <span className="save-status" aria-live="polite">{saveStatus || 'Synced'}</span>
       </header>
@@ -716,7 +850,7 @@ export function TablePage({
               return (
                 <div
                   key={object.id}
-                  className={`table-object ${object.id === selectedId ? 'selected' : ''} ${isStack ? 'stack' : ''}`}
+                  className={`table-object ${object.id === selectedId ? 'selected' : ''} ${isStack ? 'stack' : ''} ${object.id === grabbingId ? 'grabbing' : ''}`}
                   style={{
                     left: object.x - w / 2,
                     top: object.y - h / 2,
@@ -733,10 +867,7 @@ export function TablePage({
                     const current = tableRef.current;
                     if (current) mutate(current.objects.map((o) => (o.id === object.id ? flipTop(o) : o)));
                   }}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    setSelectedId(object.id);
-                  }}
+                  onContextMenu={(e) => openContextMenu(e, object)}
                 >
                   {Array.from({ length: layers }, (_, i) => (
                     <div key={i} className={`stack-edge stack-edge-${i + 1}`} aria-hidden="true" />
@@ -757,29 +888,78 @@ export function TablePage({
 
           <div className="zoom-controls">
             <button type="button" className="btn btn-secondary" onClick={() => fitView()}>
-              Reset view
+              Fit cards
             </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => {
-                const canvas = canvasRef.current;
-                if (canvas) zoomAt(canvas.getBoundingClientRect().left + 200, canvas.getBoundingClientRect().top + 200, 1.25);
-              }}
-            >
+            <button type="button" className="btn btn-secondary" onClick={() => quickZoom(1.25)}>
               Zoom +
             </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => {
-                const canvas = canvasRef.current;
-                if (canvas) zoomAt(canvas.getBoundingClientRect().left + 200, canvas.getBoundingClientRect().top + 200, 0.8);
-              }}
-            >
+            <button type="button" className="btn btn-secondary" onClick={() => quickZoom(0.8)}>
               Zoom −
             </button>
+            <span className="zoom-level" aria-live="off">
+              {Math.round(table.camera.zoom * 100)}%
+            </span>
           </div>
+
+          {menu && (() => {
+            const object = table.objects.find((o) => o.id === menu.id);
+            if (!object) return null;
+            const isStack = object.type === 'stack' && object.cardInstances.length > 1;
+            const top = object.cardInstances[object.cardInstances.length - 1];
+            const name = isStack
+              ? object.label ?? 'Stack'
+              : cards.get(top?.cardDefinitionId)?.name ?? 'Card';
+            return (
+              <div className="context-menu" role="menu" aria-label="Object actions" style={{ left: menu.left, top: menu.top }}>
+                <strong>{name}{isStack ? ` · ${object.cardInstances.length} cards` : ''}</strong>
+                <div className="context-menu-actions">
+                  <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects) => objects.map((x) => (x.id === menu.id ? flipTop(x) : x)))}>
+                    Flip top
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects) => objects.map((x) => (x.id === menu.id ? rotateObject(x, 90) : x)))}>
+                    Rotate 90°
+                  </button>
+                  {isStack ? (
+                    <>
+                      <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects, o) => shuffleStack(o, objects))}>
+                        Shuffle
+                      </button>
+                      <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects, o) => drawFromStack(o, objects, { faceUp: drawFaceUp }))}>
+                        Draw 1
+                      </button>
+                      <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects, o) => dealFromStack(o, objects, 3, { faceUp: drawFaceUp }))}>
+                        Draw 3
+                      </button>
+                      <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects, o) => gatherInto(o, objects, 170))}>
+                        Gather
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects) => bringToFront(objects, menu.id))}>
+                        Bring to front
+                      </button>
+                      <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects) => sendToBack(objects, menu.id))}>
+                        Send to back
+                      </button>
+                      <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects) => duplicateObject(objects, menu.id))}>
+                        Duplicate
+                      </button>
+                      {object.sourceDeckId ? (
+                        <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects, o) => returnToDeck(objects, o))}>
+                          Return to deck
+                        </button>
+                      ) : null}
+                    </>
+                  )}
+                  <button type="button" role="menuitem" className="danger" onClick={() => { applyTo(menu.id, (objects) => removeObject(objects, menu.id)); setSelectedId(null); }}>
+                    Delete
+                  </button>
+                </div>
+                <p className="muted context-menu-hint">Hold a stack to move it · Shift+drag too</p>
+              </div>
+            );
+          })()}
 
           {selected && (
             <div className="action-bar" role="group" aria-label="Card actions">

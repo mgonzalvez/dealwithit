@@ -915,10 +915,86 @@ main {
   border-radius: 8px;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
   cursor: grab;
+  transition: box-shadow 140ms ease;
 }
 
 .table-object:active {
   cursor: grabbing;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+}
+
+.table-object.grabbing {
+  cursor: grabbing;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), 0 0 0 2px var(--accent);
+}
+
+.context-menu {
+  position: absolute;
+  z-index: 60;
+  min-width: 210px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: menu-in 160ms ease;
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.context-menu strong {
+  font-size: 0.95rem;
+}
+
+.context-menu-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.context-menu-actions button {
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-alt);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.context-menu-actions button:hover {
+  border-color: var(--accent);
+}
+
+.context-menu-actions .danger {
+  color: #b3402f;
+  border-color: #b3402f;
+}
+
+.context-menu-hint {
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+}
+
+.zoom-level {
+  font-size: 0.85rem;
+  color: var(--muted);
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
 }
 
 .table-object.selected {

@@ -81,6 +81,7 @@ Last updated: 2026-11-01
 | Date | Issue | Fix |
 |------|-------|-----|
 | 2026-11-01 | Could not drag a card off a deck on desktop (Mac) — drawing only worked via buttons | Dragging a stack now peels its top card (drag-to-draw): the card follows the pointer, honors the Draw face-up/down setting, and can be dropped anywhere (onto another stack merges it). A click without movement just selects. Hold **Shift** while dragging a stack to slide the whole stack instead. |
+| 2026-11-01 | Table UX polish | **Hold-to-grab**: hold a stack still for ~0.7 s and the whole deck comes with you (grab shadow + accent outline). **Right-click context menu** on any card or stack with relevant actions (stacks: Flip top, Rotate, Shuffle, Draw 1/3, Gather, Delete; cards: Flip, Rotate, Bring to front/Send to back, Duplicate, Return to deck, Delete); Esc or click elsewhere closes it. **Default view is now zoomed in**: the camera fits the cards actually on the table (capped at 150%), and launching the first deck auto-zooms to it. Quick view buttons: *Fit cards*, *Zoom +*, *Zoom −* with a live zoom % badge; camera moves use eased animation. |
 
 ## Known gaps / next steps
 
