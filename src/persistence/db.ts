@@ -49,6 +49,13 @@ export class DealWithItDB extends Dexie {
       thumbnails: 'assetId',
       settings: 'key'
     });
+
+    // Version 2 — index thumbnails by projectId so project deletion and
+    // per-project thumbnail queries can use the index. Dexie builds the
+    // index automatically on upgrade; no data migration needed.
+    this.version(2).stores({
+      thumbnails: 'assetId, projectId'
+    });
   }
 }
 
