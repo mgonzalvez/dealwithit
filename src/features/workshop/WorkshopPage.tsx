@@ -89,6 +89,33 @@ export function WorkshopPage({ projectId, navigate }: { projectId?: string; navi
       listThumbnails(projectId),
       listCardDefinitions(projectId)
     ]);
+
+    // Safety net: generate thumbnails for any asset that lacks one (e.g. demo
+    // projects created before thumbnail generation existed).
+    const haveThumb = new Set(thumbnails.map((t) => t.assetId));
+    for (const asset of assets) {
+      if (haveThumb.has(asset.id)) continue;
+      const blob = await getImageBlob(asset.id);
+      if (!blob) continue;
+      const dataUrl = await makeThumbnail(blob);
+      if (dataUrl) {
+        await saveThumbnail({
+          assetId: asset.id,
+          projectId,
+          dataUrl,
+          widthPx: asset.widthPx,
+          heightPx: asset.heightPx
+        });
+        thumbnails.push({
+          assetId: asset.id,
+          projectId,
+          dataUrl,
+          widthPx: asset.widthPx,
+          heightPx: asset.heightPx
+        });
+      }
+    }
+
     setProject(project ?? null);
     setAssets(assets);
     setDecks(decks);

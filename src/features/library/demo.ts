@@ -4,10 +4,12 @@ import {
   saveDeck,
   saveImageAsset,
   saveTable,
+  saveThumbnail,
   touchProject
 } from '../../persistence/repositories';
 import { addEntryToDeck, createDeck } from '../../domain/deck-operations';
 import { DEFAULT_TRANSFORM } from '../../domain/transforms';
+import { makeThumbnail } from '../import/imageMeta';
 
 /**
  * Creates an original demo project with procedurally generated artwork
@@ -56,6 +58,17 @@ export async function createDemoProject(): Promise<string> {
       },
       blob
     );
+
+    const thumbnail = await makeThumbnail(blob);
+    if (thumbnail) {
+      await saveThumbnail({
+        assetId,
+        projectId: project.id,
+        dataUrl: thumbnail,
+        widthPx: canvas.width,
+        heightPx: canvas.height
+      });
+    }
 
     const cardId = crypto.randomUUID();
     await saveCardDefinition({
