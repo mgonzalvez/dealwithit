@@ -76,6 +76,13 @@ Last updated: 2026-11-01
 4. Table toolbar: Draw face-down/face-up persists per table across reloads.
 5. Deal N… prompts for a count.
 
+## Visual Workshop redesign
+
+- **Cards tab**: visual card tiles rendered from the actual card definitions (correct aspect ratio, transform applied). Click a card face to flip front ↔ back. Each tile has a per-card **back picker** (assign any imported image as the back, or the neutral generated back), plus Edit / Duplicate / Delete buttons and a "N in decks" counter. Bulk toolbar: rotate selected 90°, apply a back to all selected cards (or remove backs).
+- **Decks tab**: graphical deck gallery — every deck shown as a mini fanned stack of its card thumbnails with counts. Create, select, rename (prompt), duplicate and delete decks. The deck editor lists entries with thumbnails, quantity steppers, reorder, remove, and a **Move to → another deck** transfer control (merges quantities if the target already has that card). "Play on Table" button goes straight to the felt.
+- **Workflow clarity**: numbered tabs (1 · Import → 2 · Cards → 3 · Decks) and empty-state guidance pointing to the next step.
+- New pure operations with tests: `transferEntry` (deck → deck move with quantity merge) and `duplicateCardDefinition`.
+
 ## UI polish pass (premium / Gonzhome design language)
 
 - **Shared design system**: same tokens, radii, shadows and SF Pro typography as Card Extractor / TokenMaker / Formatter / BoardSplitter (light `#f4f7fb` layered gradient + subtle grid, `#1769ff` accent, glass surfaces, `--shadow-card`).

@@ -36,6 +36,9 @@ import { parseImageZip, PairingInfo } from '../import/zipImport';
 import { makeThumbnail, probeImage } from '../import/imageMeta';
 import { CardEditor } from './CardEditor';
 import { DeckBuilder } from './DeckBuilder';
+import { CardGrid } from './CardGrid';
+import { duplicateCardDefinition } from '../../domain/card-operations';
+import { transferEntry } from '../../domain/deck-operations';
 
 type WorkshopTab = 'import' | 'cards' | 'decks';
 
@@ -44,7 +47,7 @@ type WorkshopTab = 'import' | 'cards' | 'decks';
  * transforms and physical sizes, and assemble deck recipes. Everything
  * autosaves to IndexedDB.
  */
-export function WorkshopPage({ projectId }: { projectId?: string }) {
+export function WorkshopPage({ projectId, navigate }: { projectId?: string; navigate: (hash: string) => void }) {
   const [project, setProject] = useState<Project | null>(null);
   const [tab, setTab] = useState<WorkshopTab>('import');
 
@@ -317,6 +320,38 @@ export function WorkshopPage({ projectId }: { projectId?: string }) {
     await refresh();
   }
 
+  async function duplicateCard(card: CardDefinition) {
+    if (!projectId) return;
+    const copy = duplicateCardDefinition(card);
+    await saveCardDefinition(copy);
+    await touchProject(projectId);
+    markSaved();
+    await refresh();
+  }
+
+  async function bulkAssignBack(backAssetId: string | null) {
+    if (!projectId) return;
+    for (const card of cards) {
+      if (!selectedCardIds.has(card.id)) continue;
+      await saveCardDefinition({ ...card, backAssetId: backAssetId ?? undefined });
+    }
+    await touchProject(projectId);
+    markSaved();
+    await refresh();
+  }
+
+  async function transferCard(deck: DeckDefinition, entryId: string, targetDeckId: string) {
+    if (!projectId) return;
+    const target = decks.find((d) => d.id === targetDeckId);
+    if (!target) return;
+    const result = transferEntry(deck, target, entryId);
+    await saveDeck(result.from);
+    await saveDeck(result.to);
+    await touchProject(projectId);
+    markSaved();
+    await refresh();
+  }
+
   async function createDeckNamed(name: string) {
     if (!projectId) return;
     const deck = createDeck(projectId, name);
@@ -393,13 +428,13 @@ export function WorkshopPage({ projectId }: { projectId?: string }) {
 
       <nav className="workshop-tabs" aria-label="Workshop sections">
         <button type="button" className={`tab ${tab === 'import' ? 'active' : ''}`} onClick={() => setTab('import')}>
-          Import
+          1 · Import
         </button>
         <button type="button" className={`tab ${tab === 'cards' ? 'active' : ''}`} onClick={() => setTab('cards')}>
-          Cards ({cards.length})
+          2 · Cards ({cards.length})
         </button>
         <button type="button" className={`tab ${tab === 'decks' ? 'active' : ''}`} onClick={() => setTab('decks')}>
-          Decks ({decks.reduce((sum, d) => sum + deckCardCount(d), 0)} cards)
+          3 · Decks ({decks.reduce((sum, d) => sum + deckCardCount(d), 0)} cards)
         </button>
       </nav>
 
@@ -499,53 +534,33 @@ export function WorkshopPage({ projectId }: { projectId?: string }) {
 
       {tab === 'cards' && (
         <>
-          <div className="card-grid-actions">
-            <Button
-              label="Rotate selected 90°"
-              variant="secondary"
-              onClick={() => void batchRotateSelected()}
-              disabled={selectedCardIds.size === 0}
-            />
-            <span className="muted">{selectedCardIds.size} selected</span>
-          </div>
           {cards.length === 0 ? (
             <EmptyState
               title="No card definitions yet"
-              message="Import images, then create cards from them. Cards reference images non-destructively."
+              message="Import images on the Import tab, then create cards from them. Cards reference images non-destructively, so you can always change rotation, crop or size later."
+              actions={<Button label="Go to Import" onClick={() => setTab('import')} />}
             />
           ) : (
-            <div className="card-grid">
-              {cards.map((card) => (
-                <div key={card.id} className={`card-grid-item ${card.id === activeCardId ? 'active' : ''}`}>
-                  <input
-                    type="checkbox"
-                    checked={selectedCardIds.has(card.id)}
-                    onChange={() =>
-                      setSelectedCardIds((current) => {
-                        const next = new Set(current);
-                        if (next.has(card.id)) next.delete(card.id);
-                        else next.add(card.id);
-                        return next;
-                      })
-                    }
-                    aria-label={`Select ${card.name}`}
-                  />
-                  {thumbnails.get(card.frontAssetId) ? (
-                    <img src={thumbnails.get(card.frontAssetId)} alt="" />
-                  ) : (
-                    <span className="placeholder">{card.name}</span>
-                  )}
-                  <div className="card-grid-meta">
-                    <strong>{card.name}</strong>
-                    <span className="muted">
-                      {card.widthMm}×{card.heightMm} mm · {card.frontTransform.rotationDeg}° ·{' '}
-                      {card.backAssetId ? 'custom back' : 'no back'}
-                    </span>
-                  </div>
-                  <Button label="Edit" variant="secondary" onClick={() => setActiveCardId(card.id)} />
-                </div>
-              ))}
-            </div>
+            <CardGrid
+              cards={cards}
+              decks={decks}
+              assets={assets}
+              selected={selectedCardIds}
+              onToggle={(id) =>
+                setSelectedCardIds((current) => {
+                  const next = new Set(current);
+                  if (next.has(id)) next.delete(id);
+                  else next.add(id);
+                  return next;
+                })
+              }
+              onEdit={(id) => setActiveCardId(id)}
+              onDuplicate={(card) => void duplicateCard(card)}
+              onDelete={deleteCard}
+              onAssignBack={(card, backAssetId) => void saveCard({ ...card, backAssetId })}
+              onBulkAssignBack={(backAssetId) => void bulkAssignBack(backAssetId)}
+              onRotateSelected={() => void batchRotateSelected()}
+            />
           )}
 
           {activeCard && (
@@ -572,7 +587,9 @@ export function WorkshopPage({ projectId }: { projectId?: string }) {
           onQuantity={(deck, entryId, quantity) => void updateDeck(setEntryQuantity(deck, entryId, quantity))}
           onMove={(deck, entryId, delta) => void updateDeck(moveEntry(deck, entryId, delta))}
           onRemove={(deck, entryId) => void updateDeck(removeEntry(deck, entryId))}
+          onTransfer={(deck, entryId, targetId) => void transferCard(deck, entryId, targetId)}
           onAddSelectedCards={(deck) => void addSelectedCardsToDeck(deck)}
+          onPlay={() => navigate(`#/table/${projectId}`)}
           cards={cards}
           selectedCardIds={selectedCardIds}
           assets={assets}

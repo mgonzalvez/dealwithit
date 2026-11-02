@@ -10,6 +10,7 @@ import {
   moveEntry,
   randomInt,
   removeEntry,
+  transferEntry,
   setEntryQuantity,
   shuffleInstances
 } from '../domain/deck-operations';
@@ -133,6 +134,23 @@ describe('deck recipes', () => {
     expect(copy.entries[0].id).not.toBe(d.entries[0].id);
     expect(copy.entries[0].cardDefinitionId).toBe('a');
     expect(copy.entries[0].quantity).toBe(4);
+  });
+
+  it('transfers an entry between decks, merging quantities when the card already exists', () => {
+    const a = addEntryToDeck(createDeck('p1', 'Deck A'), 'card-x', 3);
+    const b = addEntryToDeck(createDeck('p1', 'Deck B'), 'card-x', 2);
+    const result = transferEntry(a, b, a.entries[0].id);
+    expect(deckCardCount(result.from)).toBe(0);
+    expect(deckCardCount(result.to)).toBe(5);
+    expect(result.to.entries.length).toBe(1);
+  });
+
+  it('transfers to an empty deck without merging', () => {
+    const a = addEntryToDeck(createDeck('p1', 'Deck A'), 'card-x', 4);
+    const b = createDeck('p1', 'Deck B');
+    const result = transferEntry(a, b, a.entries[0].id);
+    expect(deckCardCount(result.from)).toBe(0);
+    expect(deckCardCount(result.to)).toBe(4);
   });
 
   it('table operations never mutate the deck recipe', () => {
