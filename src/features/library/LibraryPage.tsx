@@ -9,6 +9,7 @@ import {
   deleteProject,
   estimateStorage,
   getSetting,
+  listCardDefinitions,
   listDecks,
   listProjects,
   loadProjectData,
@@ -75,9 +76,15 @@ export function LibraryPage({ navigate }: { navigate: (hash: string) => void }) 
   async function handleDemo() {
     const existingDemo = (await listProjects()).find((project) => project.name === 'Demo Deck');
     if (existingDemo) {
-      await refresh();
-      setMessage('The demo deck already exists — open it from the library below.');
-      return existingDemo.id;
+      const cards = await listCardDefinitions(existingDemo.id);
+      const isCurrentDemo = cards.some((card) => card.name === 'Dice');
+      if (isCurrentDemo) {
+        await refresh();
+        setMessage('The demo deck already exists — open it from the library below.');
+        return existingDemo.id;
+      }
+      // Older plain-text demo: replace it with the icon-art version.
+      await deleteProject(existingDemo.id);
     }
     const projectId = await createDemoProject();
     await refresh();
