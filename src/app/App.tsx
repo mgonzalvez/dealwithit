@@ -5,6 +5,7 @@ import { TablePage } from '../features/table/TablePage';
 import { getSetting, setSetting } from '../persistence/repositories';
 
 const RELATED_TOOLS = [
+  { name: 'GonzHome — all tools', url: 'https://gonzhome.us' },
   { name: 'Card Extractor', url: 'https://extractor.gonzhome.us' },
   { name: 'Card Formatter', url: 'https://formatter.gonzhome.us' },
   { name: 'Token Maker', url: 'https://tokenmaker.gonzhome.us' },
@@ -72,7 +73,7 @@ export function App() {
             </span>
             <span className="brand-copy">
               <strong>Deal With It</strong>
-              <span>The Print-and-Play Card Sandbox</span>
+              <span>Upload your print-and-play card images, form them into decks, and play your PnP games on a virtual table.</span>
             </span>
           </a>
           <nav className="header-nav" aria-label="Main navigation">

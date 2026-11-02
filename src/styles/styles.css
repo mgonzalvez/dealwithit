@@ -201,8 +201,10 @@ body::before {
 .brand-copy span {
   display: block;
   margin-top: 2px;
+  max-width: 42ch;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
+  line-height: 1.35;
 }
 
 .header-nav {
@@ -282,7 +284,7 @@ body::before {
 
 .tools-trigger {
   min-height: 42px;
-  padding: 8px 13px;
+  padding: 8px 14px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -302,16 +304,36 @@ body::before {
   display: none;
 }
 
+.tools-trigger svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .tools-trigger:hover {
   transform: translateY(-1px);
   border-color: var(--border-strong);
   color: var(--accent);
+  background: var(--surface-strong);
 }
 
 .tools-menu[open] .tools-trigger {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-soft);
+  box-shadow: var(--focus);
+}
+
+.tools-menu[open] .tools-chevron {
+  transform: rotate(180deg);
+}
+
+.tools-chevron {
+  transition: transform 180ms ease;
 }
 
 .tools-panel {
@@ -488,6 +510,7 @@ main {
 .dialog-backdrop {
   position: fixed;
   inset: 0;
+  z-index: 1000;
   background: rgba(9, 11, 16, 0.55);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -1597,7 +1620,10 @@ main {
 }
 
 @media (max-width: 767px) {
-  .topbar {
-    flex-wrap: wrap;
+  .brand-copy span {
+    display: none;
+  }
+  .header-inner {
+    min-height: 56px;
   }
 }

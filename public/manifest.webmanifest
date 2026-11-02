@@ -1,7 +1,7 @@
 {
   "name": "Deal With It",
   "short_name": "Deal With It",
-  "description": "The Print-and-Play Card Sandbox. Make your decks. Play your cards.",
+  "description": "Upload your print-and-play card images, form them into decks, and play your PnP games on a virtual table.",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
