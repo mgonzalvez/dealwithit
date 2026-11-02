@@ -11,6 +11,8 @@ export interface AssetBrowserProps {
   onToggle: (assetId: string) => void;
   onPreview: (asset: ImageAsset) => void;
   onAddSelectedToDeck: () => void;
+  onSelectAll: (assetIds: string[]) => void;
+  onDeselectAll: () => void;
   selectedCount: number;
 }
 
@@ -32,6 +34,8 @@ export function AssetBrowser(props: AssetBrowserProps) {
           aria-label="Search assets"
         />
         <Button label="Add selected to deck" variant="secondary" onClick={props.onAddSelectedToDeck} disabled={props.selectedCount === 0} />
+        <Button label="Select all" variant="secondary" onClick={() => props.onSelectAll(filtered.map((asset) => asset.id))} disabled={filtered.length === 0} />
+        <Button label="Deselect all" variant="secondary" onClick={props.onDeselectAll} disabled={props.selectedCount === 0} />
       </div>
       {filtered.length === 0 ? (
         <p className="muted">No images in this project yet. Use Upload Images or Import ZIP above.</p>

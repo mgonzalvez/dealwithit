@@ -554,6 +554,8 @@ export function WorkshopPage({ projectId, navigate }: { projectId?: string; navi
             }
             onPreview={handlePreview}
             onAddSelectedToDeck={() => setTab('decks')}
+            onSelectAll={(assetIds) => setSelectedAssetIds(new Set(assetIds))}
+            onDeselectAll={() => setSelectedAssetIds(new Set())}
             selectedCount={selectedAssetIds.size}
           />
 
