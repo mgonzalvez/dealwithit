@@ -90,7 +90,7 @@ export function drawFromStack(
       type: 'card',
       x: stack.x + 70,
       y: stack.y,
-      z: stack.z + 1,
+      z: Math.max(...objects.map((o) => o.z), 0) + 1,
       rotationDeg: 0,
       cardInstances: [{ ...drawn, face: options.faceUp ? 'front' : drawn.face }],
       sourceDeckId: stack.sourceDeckId
@@ -117,7 +117,7 @@ export function dealFromStack(
       type: 'card',
       x: stack.x + 140 + (i % 8) * 80,
       y: stack.y + Math.floor(i / 8) * 90,
-      z: stack.z + 1,
+      z: Math.max(...objects.map((o) => o.z), 0) + 1,
       rotationDeg: 0,
       cardInstances: [{ ...instance, face: options.faceUp ? 'front' : instance.face }],
       sourceDeckId: stack.sourceDeckId

@@ -445,8 +445,20 @@ export function TablePage({
       object.type === 'stack' &&
       object.cardInstances.length > 1 &&
       !event.shiftKey;
-    if (!peel) snapshot();
     const world = worldPoint(event.clientX, event.clientY);
+    if (!peel) {
+      snapshot();
+      // Whatever you grab comes to the front so it never slides under
+      // other cards while you move it.
+      if (tableRef.current) {
+        setTable({
+          ...tableRef.current,
+          objects: bringToFront(tableRef.current.objects, object.id),
+          updatedAt: Date.now()
+        });
+        setSaveStatus('Unsaved');
+      }
+    }
     dragRef.current = {
       kind: peel ? 'stack-draw' : 'object',
       pointerId: event.pointerId,
@@ -466,6 +478,14 @@ export function TablePage({
         const drag = dragRef.current;
         if (drag && drag.kind === 'stack-draw' && !drag.moved) {
           snapshot();
+          if (tableRef.current) {
+            setTable({
+              ...tableRef.current,
+              objects: bringToFront(tableRef.current.objects, object.id),
+              updatedAt: Date.now()
+            });
+            setSaveStatus('Unsaved');
+          }
           dragRef.current = { ...drag, kind: 'object' };
           setGrabbingId(object.id);
         }
