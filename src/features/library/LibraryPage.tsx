@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Button, Dialog, EmptyState } from '../../components/ui';
+import { Button, EmptyState } from '../../components/ui';
+import { Tour } from '../onboarding/Tour';
 import {
   createProject,
   estimateStorage,
@@ -60,8 +61,16 @@ export function LibraryPage({ navigate }: { navigate: (hash: string) => void }) 
   }
 
   async function handleDemo() {
-    await createDemoProject();
+    const projectId = await createDemoProject();
     await refresh();
+    return projectId;
+  }
+
+  async function handleTourDemo() {
+    setShowTutorial(false);
+    void setSetting('tutorial-seen', true);
+    const projectId = await handleDemo();
+    navigate(`#/table/${projectId}`);
   }
 
   async function handleExport(project: Project) {
@@ -128,23 +137,9 @@ export function LibraryPage({ navigate }: { navigate: (hash: string) => void }) 
       </p>
       {message && <p className="committed" aria-live="polite">{message}</p>}
 
-      <Dialog title="Welcome to Deal With It" open={showTutorial} onClose={dismissTutorial}>
-        <ol className="tutorial-steps">
-          <li><strong>Library</strong> — your games live here. Create, import or export projects. Everything stays on this device.</li>
-          <li><strong>Workshop</strong> — Upload Images or Import ZIP, then shape cards and build decks. One image or a hundred, mixed in any order.</li>
-          <li><strong>Table</strong> — launch a deck, shuffle, draw, flip, drag and stack. No rules, just cards.</li>
-        </ol>
-        <div className="tutorial-actions">
-          <Button
-            label="Start with demo deck"
-            onClick={() => {
-              dismissTutorial();
-              void handleDemo();
-            }}
-          />
-          <Button label="Got it" variant="secondary" onClick={dismissTutorial} />
-        </div>
-      </Dialog>
+      {showTutorial && (
+        <Tour onFinish={dismissTutorial} onDemo={() => void handleTourDemo()} />
+      )}
 
       {projects.length === 0 ? (
         <EmptyState

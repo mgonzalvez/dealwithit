@@ -49,10 +49,9 @@ function encodePng(width, height, rgb) {
 
 function renderLogo(size) {
   const pixels = Buffer.alloc(size * size * 3);
-  const bg = [47, 111, 94]; // brand green
-  const backCard = [200, 193, 178];
-  const frontCard = [242, 234, 217];
-  const dot = [47, 111, 94];
+  const backCard = [236, 242, 250];
+  const frontCard = [255, 255, 255];
+  const dot = [23, 105, 255];
 
   const cardW = size * 0.34;
   const cardH = size * 0.46;
@@ -69,16 +68,23 @@ function renderLogo(size) {
 
   const deg = (d) => (d * Math.PI) / 180;
 
+  // Diagonal gradient matching the Gonzhome brand mark: #1878ff -> #6558f5
+  const g0 = [24, 120, 255];
+  const g1 = [101, 88, 245];
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const idx = (y * size + x) * 3;
-      let color = bg;
+      const t = (x + y) / (2 * size);
+      let color = [
+        Math.round(g0[0] + (g1[0] - g0[0]) * t),
+        Math.round(g0[1] + (g1[1] - g0[1]) * t),
+        Math.round(g0[2] + (g1[2] - g0[2]) * t)
+      ];
       if (insideRect(x + 0.5, y + 0.5, size * 0.42, size * 0.54, deg(14), cardW, cardH)) {
         color = backCard;
       }
       if (insideRect(x + 0.5, y + 0.5, size * 0.58, size * 0.44, deg(-8), cardW, cardH)) {
         color = frontCard;
-        // small accent dot near the center of the front card
         const cx = size * 0.58;
         const cy = size * 0.44;
         const r = size * 0.06;

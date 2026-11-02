@@ -76,6 +76,14 @@ Last updated: 2026-11-01
 4. Table toolbar: Draw face-down/face-up persists per table across reloads.
 5. Deal N… prompts for a count.
 
+## UI polish pass (premium / Gonzhome design language)
+
+- **Shared design system**: same tokens, radii, shadows and SF Pro typography as Card Extractor / TokenMaker / Formatter / BoardSplitter (light `#f4f7fb` layered gradient + subtle grid, `#1769ff` accent, glass surfaces, `--shadow-card`).
+- **Application frame**: sticky header with backdrop blur, gradient brand mark, pill navigation, **light/dark theme toggle** (persisted to IndexedDB settings, defaults to system preference), and a "More tools" menu linking to the sibling GonzHome apps.
+- **Micro-interactions**: hover lift on cards/buttons, animated dialogs (`dialog-in`), animated context menu, animated camera tweening, focus rings via `--focus`, `prefers-reduced-motion` respected.
+- **Premium first-run tour**: 4-step interactive onboarding (Library → Workshop → Table → Export/offline) with animated line-art, progress dots, Back/Next/Skip, ending in "Open the demo table" which creates the demo project and drops you straight into play. Dismissal persists (`tutorial-seen`).
+- **Rebranded icons**: PWA icons (192/512) and favicon regenerated on the blue→violet gradient brand mark (`npm run icons`).
+
 ## Recent fixes
 
 | Date | Issue | Fix |
