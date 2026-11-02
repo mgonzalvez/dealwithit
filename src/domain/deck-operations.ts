@@ -129,6 +129,30 @@ export function moveEntry(deck: DeckDefinition, entryId: string, delta: -1 | 1):
   return { ...deck, entries, updatedAt: Date.now() };
 }
 
+/**
+ * Move an entry (with its quantity) from one deck to another.
+ * If the target deck already has that card, the quantities merge.
+ */
+export function transferEntry(
+  from: DeckDefinition,
+  to: DeckDefinition,
+  entryId: string
+): { from: DeckDefinition; to: DeckDefinition } {
+  const entry = from.entries.find((e) => e.id === entryId);
+  if (!entry) return { from, to };
+  const existing = to.entries.find((e) => e.cardDefinitionId === entry.cardDefinitionId);
+  const newTo = existing
+    ? {
+        ...to,
+        entries: to.entries.map((e) =>
+          e.id === existing.id ? { ...e, quantity: e.quantity + entry.quantity } : e
+        ),
+        updatedAt: Date.now()
+      }
+    : { ...to, entries: [...to.entries, entry], updatedAt: Date.now() };
+  return { from: removeEntry(from, entryId), to: newTo };
+}
+
 export function renameDeck(deck: DeckDefinition, name: string): DeckDefinition {
   return { ...deck, name: name.trim() || deck.name, updatedAt: Date.now() };
 }

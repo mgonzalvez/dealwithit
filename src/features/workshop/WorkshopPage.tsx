@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button, Dialog, EmptyState } from '../../components/ui';
 import {
   deleteCardDefinition,
@@ -74,6 +74,8 @@ export function WorkshopPage({ projectId }: { projectId?: string }) {
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const [activeDeckId, setActiveDeckId] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const zipInputRef = useRef<HTMLInputElement | null>(null);
 
   async function refresh() {
     if (!projectId) return;
@@ -404,31 +406,31 @@ export function WorkshopPage({ projectId }: { projectId?: string }) {
       {tab === 'import' && (
         <>
           <div className="import-actions">
-            <label className="btn btn-primary import-action">
-              Upload Images
-              <input
-                type="file"
-                multiple
-                accept="image/png,image/jpeg,image/webp"
-                onChange={(e) => void handleFiles(Array.from(e.target.files ?? []))}
-              />
-            </label>
-            <label className="btn btn-primary import-action">
-              Import ZIP
-              <input
-                type="file"
-                accept=".zip,application/zip"
-                onChange={(e) => void handleFiles(Array.from(e.target.files ?? []))}
-              />
-            </label>
-            <a
-              className="btn btn-secondary import-action"
-              href="https://extractor.gonzhome.us"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Use Card Extractor
-            </a>
+            <Button label="Upload images" onClick={() => imageInputRef.current?.click()} />
+            <input
+              ref={imageInputRef}
+              type="file"
+              multiple
+              accept="image/png,image/jpeg,image/webp"
+              className="sr-only"
+              aria-label="Choose image files to upload"
+              onChange={(e) => {
+                void handleFiles(Array.from(e.target.files ?? []));
+                e.target.value = '';
+              }}
+            />
+            <Button label="Import ZIP" variant="secondary" onClick={() => zipInputRef.current?.click()} />
+            <input
+              ref={zipInputRef}
+              type="file"
+              accept=".zip,application/zip"
+              className="sr-only"
+              aria-label="Choose a ZIP archive of card images"
+              onChange={(e) => {
+                void handleFiles(Array.from(e.target.files ?? []));
+                e.target.value = '';
+              }}
+            />
           </div>
           <p className="muted">
             You can also drag images anywhere into this page, or paste an image from the clipboard.

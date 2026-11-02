@@ -615,10 +615,6 @@ main {
   margin-top: 16px;
 }
 
-.import-action input[type='file'] {
-  display: block;
-  margin-top: 6px;
-}
 
 .dialog-backdrop {
   position: fixed;
