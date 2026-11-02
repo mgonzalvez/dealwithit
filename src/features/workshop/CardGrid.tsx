@@ -36,6 +36,8 @@ export interface CardGridProps {
   onAssignBack: (card: CardDefinition, backAssetId: string | undefined) => void;
   onBulkAssignBack: (backAssetId: string | null) => void;
   onRotateSelected: () => void;
+  onSelectAll: () => void;
+  onDeselectAll: () => void;
 }
 
 function copiesInDecks(cardId: string, decks: DeckDefinition[]): number {
@@ -140,6 +142,8 @@ export function CardGrid(props: CardGridProps) {
   return (
     <div className="card-grid-v2">
       <div className="card-grid-toolbar">
+        <Button label="Select all" variant="secondary" onClick={props.onSelectAll} disabled={props.cards.length === 0} />
+        <Button label="Deselect all" variant="secondary" onClick={props.onDeselectAll} disabled={props.selected.size === 0} />
         <span className="muted">{props.selected.size} selected</span>
         {props.selected.size > 0 && (
           <>

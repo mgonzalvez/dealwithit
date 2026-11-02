@@ -593,6 +593,8 @@ export function WorkshopPage({ projectId, navigate }: { projectId?: string; navi
               onAssignBack={(card, backAssetId) => void saveCard({ ...card, backAssetId })}
               onBulkAssignBack={(backAssetId) => void bulkAssignBack(backAssetId)}
               onRotateSelected={() => void batchRotateSelected()}
+              onSelectAll={() => setSelectedCardIds(new Set(cards.map((card) => card.id)))}
+              onDeselectAll={() => setSelectedCardIds(new Set())}
             />
           )}
 
