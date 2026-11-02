@@ -575,6 +575,11 @@ export function TablePage({
   }
 
   function handleCanvasPointerDown(event: React.PointerEvent) {
+    // Clicks inside the context menu or zoom controls must not close the
+    // menu or start a pan — otherwise the button's click handler is removed
+    // from the DOM before the click fires.
+    if (event.target instanceof HTMLElement && event.target.closest('.context-menu, .zoom-controls, .action-bar')) return;
+    if (event.button !== 0) return;
     if (menu) setMenu(null);
     if (dragRef.current) return;
     startPan(event);
@@ -910,7 +915,14 @@ export function TablePage({
               ? object.label ?? 'Stack'
               : cards.get(top?.cardDefinitionId)?.name ?? 'Card';
             return (
-              <div className="context-menu" role="menu" aria-label="Object actions" style={{ left: menu.left, top: menu.top }}>
+              <div
+                className="context-menu"
+                role="menu"
+                aria-label="Object actions"
+                style={{ left: menu.left, top: menu.top }}
+                onPointerDown={(e) => e.stopPropagation()}
+                onContextMenu={(e) => e.preventDefault()}
+              >
                 <strong>{name}{isStack ? ` · ${object.cardInstances.length} cards` : ''}</strong>
                 <div className="context-menu-actions">
                   <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects) => objects.map((x) => (x.id === menu.id ? flipTop(x) : x)))}>
