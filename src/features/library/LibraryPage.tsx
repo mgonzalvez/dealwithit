@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button, EmptyState } from '../../components/ui';
 import { Tour } from '../onboarding/Tour';
 import {
@@ -28,6 +28,7 @@ export function LibraryPage({ navigate }: { navigate: (hash: string) => void }) 
   const [storage, setStorage] = useState<{ usage: number; quota: number } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [showTutorial, setShowTutorial] = useState(false);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
 
   async function refresh() {
     const projects = await listProjects();
@@ -43,14 +44,18 @@ export function LibraryPage({ navigate }: { navigate: (hash: string) => void }) 
 
   useEffect(() => {
     void refresh();
-    void getSetting('tutorial-seen').then((seen) => {
+    void getSetting('tour-seen').then((seen) => {
       if (!seen) setShowTutorial(true);
     });
   }, []);
 
   function dismissTutorial() {
     setShowTutorial(false);
-    void setSetting('tutorial-seen', true);
+    void setSetting('tour-seen', true);
+  }
+
+  function reopenTour() {
+    setShowTutorial(true);
   }
 
   async function handleCreate() {
@@ -115,18 +120,21 @@ export function LibraryPage({ navigate }: { navigate: (hash: string) => void }) 
         <h1>Library</h1>
         <div className="library-actions">
           <Button label="Create project" onClick={handleCreate} />
+          <Button label="Tour" variant="secondary" onClick={reopenTour} />
           <Button label="Start with demo deck" variant="secondary" onClick={handleDemo} />
-          <label className="btn btn-secondary import-action">
-            Import project
-            <input
-              type="file"
-              accept=".zip,application/zip"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) void handleImport(file);
-              }}
-            />
-          </label>
+          <Button label="Import project" variant="secondary" onClick={() => importInputRef.current?.click()} />
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".zip,application/zip"
+            className="sr-only"
+            aria-label="Choose a project archive to import"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void handleImport(file);
+              e.target.value = '';
+            }}
+          />
         </div>
       </div>
       <p className="privacy-note">
