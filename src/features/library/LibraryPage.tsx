@@ -6,6 +6,7 @@ import { DECK_ICONS, DeckIconGlyph } from '../decks/deckIcons';
 import {
   createProject,
   deleteDeck,
+  deleteProject,
   estimateStorage,
   getSetting,
   listDecks,
@@ -72,10 +73,29 @@ export function LibraryPage({ navigate }: { navigate: (hash: string) => void }) 
   }
 
   async function handleDemo() {
+    const existingDemo = (await listProjects()).find((project) => project.name === 'Demo Deck');
+    if (existingDemo) {
+      await refresh();
+      setMessage('The demo deck already exists — open it from the library below.');
+      return existingDemo.id;
+    }
     const projectId = await createDemoProject();
     await refresh();
     setMessage('Demo deck created with 18 sample cards — open the Table to try shuffling and dealing.');
     return projectId;
+  }
+
+  async function handleDeleteProject(project: Project) {
+    if (
+      !window.confirm(
+        `Delete "${project.name}" and all of its images, cards, decks and tables? This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    await deleteProject(project.id);
+    await refresh();
+    setMessage(`Deleted "${project.name}".`);
   }
 
   async function handleTourDemo() {
@@ -305,6 +325,7 @@ export function LibraryPage({ navigate }: { navigate: (hash: string) => void }) 
                       onClick={() => navigate(`#/table/${project.id}`)}
                     />
                     <Button label="Export" variant="secondary" onClick={() => void handleExport(project)} />
+                    <Button label="Delete" variant="danger" onClick={() => void handleDeleteProject(project)} />
                   </div>
                 </article>
               );

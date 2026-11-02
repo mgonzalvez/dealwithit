@@ -76,6 +76,11 @@ Last updated: 2026-11-01
 4. Table toolbar: Draw face-down/face-up persists per table across reloads.
 5. Deal N… prompts for a count.
 
+## Project deletion & demo dedupe
+
+- Each Library project card now has a **Delete** button (with confirm) that removes the project plus all its images, blobs, cards, decks, tables and thumbnails from IndexedDB.
+- "Start with demo deck" no longer piles up duplicates: if a "Demo Deck" project already exists it reuses it instead of creating another.
+
 ## Quickstart, handoffs, library deck management
 
 - **Quick start guide**: first-time visitors (no projects yet) see a 3-step panel on the Library — Create a project → Import card images → Build decks & play — with buttons that jump straight to the right place.

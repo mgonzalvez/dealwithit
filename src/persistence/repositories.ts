@@ -67,6 +67,17 @@ export async function deleteDeck(deckId: string): Promise<void> {
   await db.deckDefinitions.delete(deckId);
 }
 
+export async function deleteProject(projectId: string): Promise<void> {
+  const assets = await listImageAssets(projectId);
+  await db.assetBlobs.bulkDelete(assets.map((asset) => asset.blobKey));
+  await db.imageAssets.where('projectId').equals(projectId).delete();
+  await db.cardDefinitions.where('projectId').equals(projectId).delete();
+  await db.deckDefinitions.where('projectId').equals(projectId).delete();
+  await db.tableStates.where('projectId').equals(projectId).delete();
+  await db.thumbnails.where('projectId').equals(projectId).delete();
+  await db.projects.delete(projectId);
+}
+
 export async function deleteCardDefinition(cardId: string): Promise<void> {
   await db.cardDefinitions.delete(cardId);
 }
