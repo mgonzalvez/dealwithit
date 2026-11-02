@@ -40,7 +40,9 @@ export const DECK_ICONS: DeckIcon[] = [
 ];
 
 export function iconUrl(iconId: string): string {
-  const base = import.meta.env.VITE_BASE ?? '/';
+  // BASE_URL reflects vite.config's resolved `base` in dev and prod builds,
+  // so icons resolve correctly at `/`, `/dealwithit/`, or any subpath.
+  const base = import.meta.env.BASE_URL || '/';
   return `${base}deck-icons/${iconId}.svg`;
 }
 
