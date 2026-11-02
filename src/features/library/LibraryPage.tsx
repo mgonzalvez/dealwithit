@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '../../components/ui';
-import { Tour } from '../onboarding/Tour';
 import { QuickStart } from '../onboarding/QuickStart';
 import { DECK_ICONS, DeckIconGlyph } from '../decks/deckIcons';
 import {
@@ -8,14 +7,12 @@ import {
   deleteDeck,
   deleteProject,
   estimateStorage,
-  getSetting,
   listCardDefinitions,
   listDecks,
   listProjects,
   loadProjectData,
   saveDeck,
   saveProjectData,
-  setSetting,
   touchProject
 } from '../../persistence/repositories';
 import { deckCardCount, duplicateDeck } from '../../domain/deck-operations';
@@ -29,13 +26,12 @@ function formatBytes(bytes: number): string {
   return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb.toFixed(1)} MB`;
 }
 
-export function LibraryPage({ navigate }: { navigate: (hash: string) => void }) {
+export function LibraryPage({ navigate, startTour }: { navigate: (hash: string) => void; startTour: () => void }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectDecks, setProjectDecks] = useState<Record<string, DeckDefinition[]>>({});
   const [deckNameEdits, setDeckNameEdits] = useState<Record<string, string>>({});
   const [storage, setStorage] = useState<{ usage: number; quota: number } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [showTutorial, setShowTutorial] = useState(false);
   const importInputRef = useRef<HTMLInputElement | null>(null);
 
   async function refresh() {
@@ -51,19 +47,7 @@ export function LibraryPage({ navigate }: { navigate: (hash: string) => void }) 
 
   useEffect(() => {
     void refresh();
-    void getSetting('tour-seen').then((seen) => {
-      if (!seen) setShowTutorial(true);
-    });
   }, []);
-
-  function dismissTutorial() {
-    setShowTutorial(false);
-    void setSetting('tour-seen', true);
-  }
-
-  function reopenTour() {
-    setShowTutorial(true);
-  }
 
   async function handleCreate() {
     const name = window.prompt('New project name');
@@ -103,13 +87,6 @@ export function LibraryPage({ navigate }: { navigate: (hash: string) => void }) 
     await deleteProject(project.id);
     await refresh();
     setMessage(`Deleted "${project.name}".`);
-  }
-
-  async function handleTourDemo() {
-    setShowTutorial(false);
-    void setSetting('tutorial-seen', true);
-    const projectId = await handleDemo();
-    navigate(`#/table/${projectId}`);
   }
 
   async function renameDeck(deck: DeckDefinition, name: string) {
@@ -189,7 +166,7 @@ export function LibraryPage({ navigate }: { navigate: (hash: string) => void }) 
         <h1>Library</h1>
         <div className="library-actions">
           <Button label="Create project" onClick={handleCreate} />
-          <Button label="Tour" variant="secondary" onClick={reopenTour} />
+          <Button label="Tour" variant="secondary" onClick={startTour} />
           <Button label="Start with demo deck" variant="secondary" onClick={handleDemo} />
           <Button label="Import project" variant="secondary" onClick={() => importInputRef.current?.click()} />
           <input
@@ -213,8 +190,6 @@ export function LibraryPage({ navigate }: { navigate: (hash: string) => void }) 
         )}
       </p>
       {message && <p className="committed" aria-live="polite">{message}</p>}
-
-      {showTutorial && <Tour onFinish={dismissTutorial} onDemo={() => void handleTourDemo()} />}
 
       {projects.length === 0 ? (
         <QuickStart

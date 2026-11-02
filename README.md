@@ -9,6 +9,10 @@ in the Workshop, then play on a virtual Table: shuffle, draw, flip, drag and
 stack. No rules engine, no accounts, no backend — your files stay on your
 device unless you export them.
 
+A guided step-by-step tour walks new players through the full workflow
+(Library → Import → Cards → Decks → Table → Export), navigating to each
+section live as it explains what to do there.
+
 Intended public address: **https://dealwithit.gonzhome.us** (GitHub Pages with
 a custom domain; DNS setup is documented below and not yet verified).
 
@@ -58,9 +62,13 @@ GitHub Pages deep links never 404.
   immutable templates; table operations create independent card instances and
   never mutate recipes. Shuffling is Fisher–Yates with
   `crypto.getRandomValues` (rejection sampling, unbiased).
-- **Milestones**: M0 scaffold (done), M1 image/ZIP import, M2 Workshop,
-  M3 Table, M4 export/import, M5 PWA/offline, M6 Card Extractor bridge
-  bridge. See `IMPLEMENTATION_STATUS.md`.
+- **Milestones**: M0 scaffold, M1 image/ZIP import, M2 Workshop, M3 Table,
+  M4 export/import, M5 PWA/offline, M6 Card Extractor bridge — all done.
+  See `IMPLEMENTATION_STATUS.md`.
+- **Workshop is visual**: card tiles render actual card art (click to flip
+  front/back, bulk back assignment), decks appear as fanned thumbnail stacks
+  with quantity steppers, reorder, deck icons and deck-to-deck transfer.
+- **Routing** supports Workshop tabs: `#/workshop/<id>/import|cards|decks`.
 
 ## Tradeoffs
 
@@ -71,8 +79,8 @@ GitHub Pages deep links never 404.
   the bridge waits for the real export contract.
 - Empty stacks are removed on the table (MVP behaviour) rather than left as
   placeholders.
-- Demo artwork is generated procedurally at runtime — no bundled third-party
-  images, no licensing risk.
+- Demo artwork is rendered at runtime from the bundled Fractal Symbols icon
+  set (CC BY 4.0, attribution below) — small, safe, and no licensing risk.
 
 ## Installable & offline (PWA)
 
@@ -93,6 +101,14 @@ state, with checksums). Importing that archive on any device restores the
 project exactly; IDs are remapped so the same archive can be imported
 devices repeatedly without collisions. Ordinary image ZIPs (including Card
 Extractor exports) still import through the Workshop.
+
+## Artwork attribution
+
+Deck icons and demo card artwork use the **Fractal Symbols** board game icon
+library by Felix Thalin (<https://fractalsymbols.com>), licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The same set is
+used by TokenMaker and Prototyper. SVGs live in `public/deck-icons/` and are
+normalized to `fill: currentColor` for theme adaptation.
 
 ## Privacy
 

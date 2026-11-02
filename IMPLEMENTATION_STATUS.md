@@ -1,6 +1,6 @@
 # Implementation Status
 
-Last updated: 2026-11-01
+Last updated: 2026-11-02
 
 | Milestone | Status | Notes |
 |---|---|---|
@@ -18,6 +18,8 @@ Last updated: 2026-11-01
 **M1:** lint, typecheck, 41 unit/integration tests, build — passing.
 **M2:** lint, typecheck, 45 unit/integration tests, build (both bases), preview smoke — passing.
 **M3:** lint, typecheck, 54 unit/integration tests, build (both bases), preview smoke — passing.
+
+**Current (2026-11-02):** lint, typecheck, **74 tests across 9 test files** (domain ops, schemas, import pipeline, export/import round trip, card-extractor bridge, card ops, performance budgets), build passes on both base paths (`/` and `/dealwithit/`).
 
 ### M1 automated coverage (`src/test/import-pipeline.test.ts`)
 - Path-safety and OS-metadata rules
@@ -76,6 +78,18 @@ Last updated: 2026-11-01
 4. Table toolbar: Draw face-down/face-up persists per table across reloads.
 5. Deal N… prompts for a count.
 
+## Guided workflow tour (rewritten)
+
+- The modal feature tour is replaced by a **step-by-step walkthrough rail** docked in the bottom-left. The actual app section stays live and interactive while the rail guides you:
+  1. **Library** — create a project (or load the demo)
+  2. **Workshop › Import** — upload images/ZIP, Select all valid, Import, create cards
+  3. **Workshop › Cards** — flip tiles, Select all, Apply back to selected, rotate
+  4. **Workshop › Decks** — create deck, add selected cards, set quantities, pick an icon, Play on Table
+  5. **Table** — drag to draw, hold to grab, double-tap to flip, action bar, zoom/pan, undo
+  6. **Library** — Export/Import a `.dealwithit.zip` to share
+- Each step navigates to the corresponding section (Workshop tabs are now encoded in the hash, e.g. `#/workshop/<id>/cards`). If no project exists, the tour creates the demo deck so every step has real content to interact with.
+- Re-open anytime with the **Tour** button in the Library.
+
 ## Project deletion & demo dedupe
 
 - Each Library project card now has a **Delete** button (with confirm) that removes the project plus all its images, blobs, cards, decks, tables and thumbnails from IndexedDB.
@@ -109,6 +123,11 @@ Last updated: 2026-11-01
 | Date | Issue | Fix |
 |------|-------|-----|
 | 2026-11-01 | Could not drag a card off a deck on desktop (Mac) — drawing only worked via buttons | Dragging a stack now peels its top card (drag-to-draw): the card follows the pointer, honors the Draw face-up/down setting, and can be dropped anywhere (onto another stack merges it). A click without movement just selects. Hold **Shift** while dragging a stack to slide the whole stack instead. |
+| 2026-11-02 | Demo deck tiles showed filenames instead of thumbnails | Demo assets now store generated thumbnails; the Workshop also auto-generates any missing thumbnail on load (self-healing for older projects). |
+| 2026-11-02 | Delete project threw Dexie `SchemaError` (thumbnails not indexed by projectId) | Added Dexie **version 2** migration indexing `thumbnails.assetId, projectId`. Existing databases upgrade automatically. |
+| 2026-11-02 | Deck icons 404'd in dev ("did you mean /dealwithit/…") | `iconUrl()` now uses `import.meta.env.BASE_URL` (Vite's resolved base) instead of the unset `VITE_BASE` env var. |
+| 2026-11-02 | Dragged decks slid *under* existing cards | Grabbing any object brings it to the front of the z-order; drawn/dealt cards spawn at max z + 1. |
+| 2026-11-02 | Tedious per-item selection | Select all / Deselect all buttons added to the Cards tab toolbar and the Import asset browser (respects the search filter). Staging already had Select all valid / Deselect all. |
 | 2026-11-01 | Table UX polish | **Hold-to-grab**: hold a stack still for ~0.7 s and the whole deck comes with you (grab shadow + accent outline). **Right-click context menu** on any card or stack with relevant actions (stacks: Flip top, Rotate, Shuffle, Draw 1/3, Gather, Delete; cards: Flip, Rotate, Bring to front/Send to back, Duplicate, Return to deck, Delete); Esc or click elsewhere closes it. **Default view is now zoomed in**: the camera fits the cards actually on the table (capped at 150%), and launching the first deck auto-zooms to it. Quick view buttons: *Fit cards*, *Zoom +*, *Zoom −* with a live zoom % badge; camera moves use eased animation. |
 
 ## Known gaps / next steps

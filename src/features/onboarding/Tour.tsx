@@ -1,138 +1,90 @@
-import { useState } from 'react';
+import { Button } from '../../components/ui';
 
-interface TourStep {
+export interface TourStep {
   title: string;
+  where: string;
   body: string;
-  art: 'library' | 'workshop' | 'table' | 'share';
 }
 
-const STEPS: TourStep[] = [
+/**
+ * Workflow-first guided tour. Each step navigates to the real section of the
+ * app and shows bite-size instructions for exactly what to do there.
+ */
+export const TOUR_STEPS: TourStep[] = [
   {
-    title: 'Your games live on your device',
+    title: 'Start in the Library',
+    where: 'Library',
     body:
-      'Deal With It stores everything in your browser — no accounts, no servers, no tracking. Create a project and your artwork, decks and table layouts are instantly available, even offline.',
-    art: 'library'
+      'Every game is a project. Press New project and give it a name — or press Start with demo deck to load 18 ready-made sample cards. Everything else happens inside your project.',
   },
   {
-    title: 'Turn any images into decks',
+    title: 'Import your card images',
+    where: 'Workshop › Import',
     body:
-      'In the Workshop, drop in single images, whole ZIPs (Card Extractor exports included), or hundreds of files at once. Rotate, crop, size, and pair fronts with backs — then shape them into decks with quantities you control.',
-    art: 'workshop'
+      'Press Upload images or Import ZIP. A ZIP from Card Extractor pairs fronts and backs automatically. In the staging list press Select all valid, then Import N image(s). Later, Select all in the Asset library and press Create cards from selected images.',
   },
   {
-    title: 'Play like a real table',
+    title: 'Pair fronts with backs',
+    where: 'Workshop › Cards',
     body:
-      'Launch a deck onto the felt. Drag a stack to draw a card. Hold a stack to grab the whole deck. Right-click anything for quick actions. Scroll or pinch to zoom, and drag the felt to pan. Undo at any time.',
-    art: 'table'
+      'Click any card tile to flip between its front and back. Select all, then Apply back to selected to give every card the same back. Rotate 90° fixes sideways faces. Edit opens crop, size and rotation controls.',
   },
   {
-    title: 'Backups, sharing and offline play',
+    title: 'Assemble a deck',
+    where: 'Workshop › Decks',
     body:
-      'Export any project as a self-contained .dealwithit.zip — decks, table state and artwork — and import it on any other device. Install Deal With It from the browser for a full offline app.',
-    art: 'share'
+      'Type a name and press Create deck. Select the cards you want, then Add N selected card(s). Use + and − to set how many copies, ↑ ↓ to order the deck, and pick a deck icon. When it looks right, press Play on Table.',
+  },
+  {
+    title: 'Play on the table',
+    where: 'Table',
+    body:
+      'Your deck sits on the felt as a stack. Drag to peel the top card off — or hold a stack briefly, then drag to carry the whole deck. Double-tap to flip a card. The action bar shuffles, draws, deals, gathers and changes the felt. Pinch or scroll to zoom, drag empty felt to pan, and Ctrl/Cmd+Z to undo.',
+  },
+  {
+    title: 'Save and share your project',
+    where: 'Library',
+    body:
+      'Back in the Library, press Export to download your whole project — images, decks and table setup — as a single .dealwithit.zip you can open on any other device with Import project. That\u2019s the full loop: import, build, play, share.',
   }
 ];
 
-function Art({ kind }: { kind: TourStep['art'] }) {
-  switch (kind) {
-    case 'library':
-      return (
-        <>
-          <rect x="10" y="14" width="52" height="36" rx="8" />
-          <rect x="70" y="14" width="52" height="36" rx="8" />
-          <rect x="130" y="14" width="52" height="36" rx="8" />
-          <circle cx="36" cy="32" r="9" />
-        </>
-      );
-    case 'workshop':
-      return (
-        <>
-          <rect x="14" y="20" width="44" height="60" rx="8" />
-          <rect x="64" y="20" width="44" height="60" rx="8" />
-          <path d="M64 50h44" />
-          <path d="M120 30l18 18M138 30l-18 18" />
-        </>
-      );
-    case 'table':
-      return (
-        <>
-          <rect x="10" y="16" width="180" height="68" rx="12" />
-          <rect x="24" y="28" width="30" height="42" rx="6" />
-          <rect x="30" y="30" width="30" height="42" rx="6" />
-          <rect x="80" y="44" width="30" height="42" rx="6" transform="rotate(8 95 65)" />
-          <circle cx="140" cy="40" r="10" />
-        </>
-      );
-    case 'share':
-      return (
-        <>
-          <path d="M40 44h92M40 44l20-20M40 44l20 20" />
-          <rect x="120" y="26" width="60" height="36" rx="8" />
-          <path d="M150 44h18M150 44l-8-8M150 44l-8 8" />
-        </>
-      );
-  }
-}
-
-export function Tour({ onFinish, onDemo }: { onFinish: () => void; onDemo: () => void }) {
-  const [step, setStep] = useState(0);
-  const total = STEPS.length;
-  const current = STEPS[step];
+export function TourRail({
+  step,
+  onNext,
+  onBack,
+  onSkip
+}: {
+  step: number;
+  onNext: () => void;
+  onBack: () => void;
+  onSkip: () => void;
+}) {
+  const total = TOUR_STEPS.length;
+  const current = TOUR_STEPS[step];
 
   return (
-    <div className="dialog-backdrop" role="presentation">
-      <div role="dialog" aria-modal="true" aria-label="Deal With It tour" className="tour">
-        <div className="tour-head">
-          <span className="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24">
-              <rect x="4" y="6" width="10" height="14" rx="2" transform="rotate(-12 9 13)" />
-              <rect x="9" y="4" width="10" height="14" rx="2" transform="rotate(6 14 11)" />
-              <circle cx="14" cy="11" r="2.2" />
-            </svg>
-          </span>
-          <div>
-            <h2>Welcome to Deal With It</h2>
-            <p className="muted">A 30-second tour · everything stays local</p>
-          </div>
-        </div>
-
-        <div className="tour-art" aria-hidden="true">
-          <svg viewBox="0 0 200 96">
-            <g stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
-              <Art kind={current.art} />
-            </g>
-          </svg>
-        </div>
-
-        <h3 className="tour-title">{current.title}</h3>
-        <p className="tour-body">{current.body}</p>
-
-        <div className="tour-dots" aria-label={`Step ${step + 1} of ${total}`}>
-          {STEPS.map((_, i) => (
-            <span key={i} className={`tour-dot ${i === step ? 'on' : ''}`} />
-          ))}
-        </div>
-
-        <div className="tour-actions">
-          {step > 0 && (
-            <button type="button" className="btn btn-secondary" onClick={() => setStep(step - 1)}>
-              Back
-            </button>
-          )}
-          {step < total - 1 ? (
-            <button type="button" className="btn btn-primary" onClick={() => setStep(step + 1)}>
-              Next
-            </button>
-          ) : (
-            <button type="button" className="btn btn-primary" onClick={onDemo}>
-              Open the demo table
-            </button>
-          )}
-          <button type="button" className="btn btn-secondary" onClick={onFinish}>
-            Skip tour
-          </button>
-        </div>
+    <aside className="tour-rail" aria-label="Guided walkthrough">
+      <div className="tour-rail-head">
+        <span className="tour-rail-step">Step {step + 1} of {total}</span>
+        <h2>{current.title}</h2>
+        <span className="tour-rail-where">{current.where}</span>
       </div>
-    </div>
+      <p className="tour-rail-body">{current.body}</p>
+      <div className="tour-rail-dots" aria-hidden="true">
+        {TOUR_STEPS.map((_, i) => (
+          <span key={i} className={`tour-dot ${i === step ? 'on' : ''}`} />
+        ))}
+      </div>
+      <div className="tour-rail-actions">
+        {step > 0 && <Button label="Back" variant="secondary" onClick={onBack} />}
+        {step < total - 1 ? (
+          <Button label="Next step" onClick={onNext} />
+        ) : (
+          <Button label="Finish — start playing" onClick={onSkip} />
+        )}
+        <Button label="Close tour" variant="secondary" onClick={onSkip} />
+      </div>
+    </aside>
   );
 }

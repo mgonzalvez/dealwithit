@@ -47,9 +47,17 @@ type WorkshopTab = 'import' | 'cards' | 'decks';
  * transforms and physical sizes, and assemble deck recipes. Everything
  * autosaves to IndexedDB.
  */
-export function WorkshopPage({ projectId, navigate }: { projectId?: string; navigate: (hash: string) => void }) {
+export function WorkshopPage({
+  projectId,
+  navigate,
+  initialTab
+}: {
+  projectId?: string;
+  navigate: (hash: string) => void;
+  initialTab?: WorkshopTab;
+}) {
   const [project, setProject] = useState<Project | null>(null);
-  const [tab, setTab] = useState<WorkshopTab>('import');
+  const [tab, setTab] = useState<WorkshopTab>(initialTab ?? 'import');
 
   // Import state
   const [staged, setStaged] = useState<StagedItem[]>([]);
@@ -128,6 +136,10 @@ export function WorkshopPage({ projectId, navigate }: { projectId?: string; navi
   useEffect(() => {
     void refresh();
   }, [projectId]);
+
+  useEffect(() => {
+    if (initialTab) setTab(initialTab);
+  }, [initialTab]);
 
   useEffect(() => {
     function handlePaste(event: ClipboardEvent) {

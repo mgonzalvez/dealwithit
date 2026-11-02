@@ -15,7 +15,8 @@
 
 - **Frontend:** Vite + React + TypeScript (strict), CSS variables, lightweight handcrafted components (no heavyweight UI libraries)
 - **State:** Zustand (or React context if sufficient)
-- **Persistence:** Dexie + IndexedDB for metadata and image blobs — **never** store images in localStorage or as base64 in JSON
+- **Persistence:** Dexie + IndexedDB for metadata and image blobs — **never** store images in localStorage or as base64 in JSON. Schema versioning lives in `src/persistence/db.ts` (currently version 2); new indexes require a `version(n).stores({...})` block, not editing version 1
+- **Deck icons:** curated Fractal Symbols SVGs (Felix Thalin, CC BY 4.0 — same set as TokenMaker) in `public/deck-icons/`, registered in `src/features/decks/deckIcons.tsx`; rendered inline via `fetch` + `dangerouslySetInnerHTML` so `currentColor` inherits the theme
 - **Table rendering:** HTML/CSS transformed cards in a single pan/zoom layer with pointer events; only move to PixiJS/canvas if benchmarks require it
 - **ZIP handling:** JSZip or fflate
 - **Validation:** Zod (or equivalent) for schema/runtime validation
@@ -45,7 +46,8 @@ Key rules:
 ### Deployment modes
 - Vite `base` configurable: `/` for `dealwithit.gonzhome.us`, `/dealwithit/` for repo Pages preview
 - `public/CNAME` containing `dealwithit.gonzhome.us` for custom-domain deployment
-- Prefer hash routing or in-app navigation to avoid Pages deep-link 404s
+- Prefer hash routing or in-app navigation to avoid Pages deep-link 404s (`#/workshop/<id>/import|cards|decks` encodes the Workshop tab)
+- Resolve static asset URLs with `import.meta.env.BASE_URL`, not a hand-rolled env var
 - PWA: manifest, 192/512 icons, favicon, service worker precaching app shell only (never user images)
 - Both root-domain and subpath builds must pass smoke tests
 
@@ -105,9 +107,11 @@ Game rules, scoring, AI, multiplayer, accounts, cloud sync, analytics, ads, DRM,
 ```bash
 npm run lint        # ESLint
 npm run typecheck   # strict TS check
-npm test            # Vitest + RTL
-npm run e2e         # Playwright
-npm run build       # Vite production build
+npm test            # Vitest (74 tests as of 2026-11-02)
+npm run build       # Vite production build (default base /dealwithit/)
+VITE_BASE=/ npm run build  # root-domain build for dealwithit.gonzhome.us
+npm run icons       # regenerate PNG app icons (192/512)
+npm run preview     # preview the built app
 ```
 
 ## Repository Layout (suggested)
@@ -116,6 +120,7 @@ npm run build       # Vite production build
 src/
   app/ components/ domain/ persistence/ integration/ features/ styles/ test/
 public/
-  demo/
+  deck-icons/      # Fractal Symbols SVGs (CC BY 4.0) for deck icons
+  favicon.svg, manifest.webmanifest, sw.js, icons/
 .github/workflows/deploy.yml
 ```

@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { LibraryPage } from '../features/library/LibraryPage';
 import { WorkshopPage } from '../features/workshop/WorkshopPage';
 import { TablePage } from '../features/table/TablePage';
-import { getSetting, setSetting } from '../persistence/repositories';
+import { getSetting, listProjects, setSetting } from '../persistence/repositories';
+import { createDemoProject } from '../features/library/demo';
+import { TOUR_STEPS, TourRail } from '../features/onboarding/Tour';
 
 const RELATED_TOOLS = [
   { name: 'GonzHome — all tools', url: 'https://gonzhome.us' },
@@ -17,12 +19,14 @@ const RELATED_TOOLS = [
 interface Route {
   area: 'library' | 'workshop' | 'table';
   projectId?: string;
+  tab?: 'import' | 'cards' | 'decks';
 }
 
 function parseHash(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/');
   const area = parts[0] === 'workshop' ? 'workshop' : parts[0] === 'table' ? 'table' : 'library';
-  return { area, projectId: parts[1] || undefined };
+  const tab = parts[2] === 'import' || parts[2] === 'cards' || parts[2] === 'decks' ? parts[2] : undefined;
+  return { area, projectId: parts[1] || undefined, tab };
 }
 
 function applyTheme(theme: 'light' | 'dark') {
@@ -32,6 +36,7 @@ function applyTheme(theme: 'light' | 'dark') {
 export function App() {
   const [route, setRoute] = useState<Route>(() => parseHash(window.location.hash));
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [tourStep, setTourStep] = useState<number | null>(null);
 
   const navigate = (hash: string) => {
     window.location.hash = hash;
@@ -41,6 +46,9 @@ export function App() {
   window.addEventListener('hashchange', () => setRoute(parseHash(window.location.hash)));
 
   useEffect(() => {
+    void getSetting('tour-seen').then((seen) => {
+      if (!seen) setTourStep(0);
+    });
     void getSetting('theme').then((stored) => {
       const next = stored === 'light' || stored === 'dark'
         ? stored
@@ -51,6 +59,37 @@ export function App() {
       applyTheme(next);
     });
   }, []);
+
+  async function ensureTourProject(): Promise<string> {
+    const projects = await listProjects();
+    if (projects.length > 0) return projects[0].id;
+    return createDemoProject();
+  }
+
+  function goToStep(step: number) {
+    const target = TOUR_STEPS[step];
+    if (target.where === 'Library') {
+      navigate('#/library');
+      return;
+    }
+    void ensureTourProject().then((projectId) => {
+      if (target.where.startsWith('Workshop')) {
+        navigate(`#/workshop/${projectId}/${target.where.split(' › ')[1] ?? 'import'}`);
+      } else {
+        navigate(`#/table/${projectId}`);
+      }
+    });
+  }
+
+  function startTour() {
+    setTourStep(0);
+    navigate('#/library');
+  }
+
+  function finishTour() {
+    setTourStep(null);
+    void setSetting('tour-seen', true);
+  }
 
   function toggleTheme() {
     const next = theme === 'dark' ? 'light' : 'dark';
@@ -138,10 +177,28 @@ export function App() {
         </div>
       </header>
       <main>
-        {route.area === 'library' && <LibraryPage navigate={navigate} />}
-        {route.area === 'workshop' && <WorkshopPage projectId={route.projectId} navigate={navigate} />}
+        {route.area === 'library' && <LibraryPage navigate={navigate} startTour={startTour} />}
+        {route.area === 'workshop' && (
+          <WorkshopPage projectId={route.projectId} navigate={navigate} initialTab={route.tab} />
+        )}
         {route.area === 'table' && <TablePage projectId={route.projectId} navigate={navigate} />}
       </main>
+      {tourStep !== null && (
+        <TourRail
+          step={tourStep}
+          onNext={() => {
+            const next = (tourStep ?? 0) + 1;
+            setTourStep(next);
+            goToStep(next);
+          }}
+          onBack={() => {
+            const back = Math.max(0, (tourStep ?? 0) - 1);
+            setTourStep(back);
+            goToStep(back);
+          }}
+          onSkip={finishTour}
+        />
+      )}
       <footer className="footer">
         <p>
           Deal With It — The Print-and-Play Card Sandbox ·{' '}
