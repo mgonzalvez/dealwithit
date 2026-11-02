@@ -47,6 +47,7 @@ export const deckDefinitionSchema = z.object({
   name: z.string().min(1),
   entries: z.array(deckEntrySchema),
   defaultBackAssetId: z.string().optional(),
+  icon: z.string().optional(),
   createdAt: z.number(),
   updatedAt: z.number()
 });

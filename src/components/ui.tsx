@@ -105,3 +105,12 @@ export function EmptyState({
     </div>
   );
 }
+
+export function Handoff({ message, actionLabel, onClick }: { message: string; actionLabel: string; onClick: () => void }) {
+  return (
+    <div className="handoff" role="note">
+      <p>{message}</p>
+      <Button label={actionLabel} variant="secondary" onClick={onClick} />
+    </div>
+  );
+}

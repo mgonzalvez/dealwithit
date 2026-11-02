@@ -1,18 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, EmptyState } from '../../components/ui';
+import { Button } from '../../components/ui';
 import { Tour } from '../onboarding/Tour';
+import { QuickStart } from '../onboarding/QuickStart';
+import { DECK_ICONS, DeckIconGlyph } from '../decks/deckIcons';
 import {
   createProject,
+  deleteDeck,
   estimateStorage,
   getSetting,
   listDecks,
   listProjects,
   loadProjectData,
+  saveDeck,
   saveProjectData,
-  setSetting
+  setSetting,
+  touchProject
 } from '../../persistence/repositories';
-import { deckCardCount } from '../../domain/deck-operations';
-import { Project } from '../../domain/models';
+import { deckCardCount, duplicateDeck } from '../../domain/deck-operations';
+import { DeckDefinition, Project } from '../../domain/models';
 import { buildProjectZip, exportFilename, readProjectZip } from '../export/export';
 import { createDemoProject } from './demo';
 
@@ -24,21 +29,21 @@ function formatBytes(bytes: number): string {
 
 export function LibraryPage({ navigate }: { navigate: (hash: string) => void }) {
   const [projects, setProjects] = useState<Project[]>([]);
-  const [deckCounts, setDeckCounts] = useState<Record<string, number>>({});
+  const [projectDecks, setProjectDecks] = useState<Record<string, DeckDefinition[]>>({});
+  const [deckNameEdits, setDeckNameEdits] = useState<Record<string, string>>({});
   const [storage, setStorage] = useState<{ usage: number; quota: number } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [showTutorial, setShowTutorial] = useState(false);
   const importInputRef = useRef<HTMLInputElement | null>(null);
 
   async function refresh() {
-    const projects = await listProjects();
-    setProjects(projects);
-    const counts: Record<string, number> = {};
-    for (const project of projects) {
-      const decks = await listDecks(project.id);
-      counts[project.id] = decks.reduce((sum, d) => sum + deckCardCount(d), 0);
+    const items = await listProjects();
+    setProjects(items);
+    const decks: Record<string, DeckDefinition[]> = {};
+    for (const project of items) {
+      decks[project.id] = await listDecks(project.id);
     }
-    setDeckCounts(counts);
+    setProjectDecks(decks);
     setStorage(await estimateStorage());
   }
 
@@ -63,11 +68,13 @@ export function LibraryPage({ navigate }: { navigate: (hash: string) => void }) 
     if (!name) return;
     await createProject(name);
     await refresh();
+    setMessage(`Created "${name}". Next step: import your card images in the Workshop.`);
   }
 
   async function handleDemo() {
     const projectId = await createDemoProject();
     await refresh();
+    setMessage('Demo deck created with 18 sample cards — open the Table to try shuffling and dealing.');
     return projectId;
   }
 
@@ -76,6 +83,39 @@ export function LibraryPage({ navigate }: { navigate: (hash: string) => void }) 
     void setSetting('tutorial-seen', true);
     const projectId = await handleDemo();
     navigate(`#/table/${projectId}`);
+  }
+
+  async function renameDeck(deck: DeckDefinition, name: string) {
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === deck.name) return;
+    await saveDeck({ ...deck, name: trimmed, updatedAt: Date.now() });
+    await touchProject(deck.projectId);
+    await refresh();
+    setMessage(`Renamed deck to "${trimmed}".`);
+  }
+
+  async function setDeckIcon(deck: DeckDefinition, icon: string) {
+    await saveDeck({ ...deck, icon: icon || undefined, updatedAt: Date.now() });
+    await touchProject(deck.projectId);
+    await refresh();
+  }
+
+  async function duplicateDeckAction(deck: DeckDefinition) {
+    const copy = duplicateDeck(deck, deck.projectId);
+    await saveDeck(copy);
+    await touchProject(deck.projectId);
+    await refresh();
+    setMessage(`Duplicated deck "${deck.name}".`);
+  }
+
+  async function deleteDeckAction(deck: DeckDefinition) {
+    if (!window.confirm(`Delete deck "${deck.name}" (${deckCardCount(deck)} cards)? Tables keep cards already on them.`)) {
+      return;
+    }
+    await deleteDeck(deck.id);
+    await touchProject(deck.projectId);
+    await refresh();
+    setMessage(`Deleted deck "${deck.name}".`);
   }
 
   async function handleExport(project: Project) {
@@ -114,6 +154,8 @@ export function LibraryPage({ navigate }: { navigate: (hash: string) => void }) 
     }
   }
 
+  const firstProjectId = projects[0]?.id ?? null;
+
   return (
     <section className="library">
       <div className="library-header">
@@ -145,50 +187,130 @@ export function LibraryPage({ navigate }: { navigate: (hash: string) => void }) 
       </p>
       {message && <p className="committed" aria-live="polite">{message}</p>}
 
-      {showTutorial && (
-        <Tour onFinish={dismissTutorial} onDemo={() => void handleTourDemo()} />
-      )}
+      {showTutorial && <Tour onFinish={dismissTutorial} onDemo={() => void handleTourDemo()} />}
 
       {projects.length === 0 ? (
-        <EmptyState
-          title="No games yet"
-          message="Upload card images or import a ZIP to start your first project."
-          actions={<Button label="Start with demo deck" onClick={handleDemo} />}
+        <QuickStart
+          onCreateProject={handleCreate}
+          onDemo={() => void handleDemo()}
+          navigate={navigate}
+          firstProjectId={null}
         />
       ) : (
-        <div className="project-grid">
-          {projects.map((project) => (
-            <article key={project.id} className="project-card">
-              <div className="project-cover" aria-hidden="true">
-                <svg viewBox="0 0 64 64" width="64" height="64">
-                  <rect x="8" y="12" width="40" height="40" rx="6" fill="#d8d2c4" transform="rotate(-8 28 32)" />
-                  <rect x="16" y="16" width="40" height="40" rx="6" fill="#f2ead9" />
-                </svg>
-              </div>
-              <h2>{project.name}</h2>
-              <p>
-                {deckCounts[project.id] ?? 0} cards · updated{' '}
-                {new Date(project.updatedAt).toLocaleDateString()}
-              </p>
-              <div className="project-card-actions">
-                <Button
-                  label="Edit in Workshop"
-                  onClick={() => navigate(`#/workshop/${project.id}`)}
-                />
-                <Button
-                  label="Play on Table"
-                  variant="secondary"
-                  onClick={() => navigate(`#/table/${project.id}`)}
-                />
-                <Button
-                  label="Export"
-                  variant="secondary"
-                  onClick={() => void handleExport(project)}
-                />
-              </div>
-            </article>
-          ))}
-        </div>
+        <>
+          <div className="handoff" role="note">
+            <p>
+              Finished here? Your workflow is: <strong>Workshop</strong> (import images, pair
+              fronts &amp; backs, build decks) → <strong>Table</strong> (shuffle, deal, play).
+            </p>
+            {firstProjectId && (
+              <Button label="Go to the Workshop" onClick={() => navigate(`#/workshop/${firstProjectId}`)} />
+            )}
+          </div>
+
+          <div className="project-grid">
+            {projects.map((project) => {
+              const decks = projectDecks[project.id] ?? [];
+              return (
+                <article key={project.id} className="project-card">
+                  <div className="project-cover" aria-hidden="true">
+                    <svg viewBox="0 0 64 64" width="64" height="64">
+                      <rect x="8" y="12" width="40" height="40" rx="6" fill="#d8d2c4" transform="rotate(-8 28 32)" />
+                      <rect x="16" y="16" width="40" height="40" rx="6" fill="#f2ead9" />
+                    </svg>
+                  </div>
+                  <h2>{project.name}</h2>
+                  <p>
+                    {decks.reduce((sum, d) => sum + deckCardCount(d), 0)} cards · {decks.length}{' '}
+                    {decks.length === 1 ? 'deck' : 'decks'} · updated{' '}
+                    {new Date(project.updatedAt).toLocaleDateString()}
+                  </p>
+
+                  <div className="project-decks">
+                    {decks.length === 0 ? (
+                      <p className="muted">No decks yet — build one in the Workshop.</p>
+                    ) : (
+                      <ul className="deck-rows">
+                        {decks.map((deck) => (
+                          <li key={deck.id} className="deck-row">
+                            <select
+                              className="deck-icon-select"
+                              value={deck.icon ?? ''}
+              onChange={(e) => void setDeckIcon(deck, e.target.value)}
+                              aria-label={`Icon for deck ${deck.name}`}
+                            >
+                              <option value="">No icon</option>
+                              {DECK_ICONS.map((icon) => (
+                                <option key={icon.id} value={icon.id}>
+                                  {icon.label}
+                                </option>
+                              ))}
+                            </select>
+                            <span className="deck-row-icon">
+                              {deck.icon ? (
+                                <DeckIconGlyph iconId={deck.icon} />
+                              ) : (
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                  <rect x="4" y="4" width="14" height="16" rx="3" fill="none" stroke="currentColor" strokeWidth="2" />
+                                  <rect x="8" y="2" width="12" height="14" rx="3" fill="none" stroke="currentColor" strokeWidth="2" />
+                                </svg>
+                              )}
+                            </span>
+                            <input
+                              type="text"
+                              className="deck-name-input"
+                              value={deckNameEdits[deck.id] ?? deck.name}
+                              onChange={(e) => setDeckNameEdits((m) => ({ ...m, [deck.id]: e.target.value }))}
+                              onBlur={() => {
+                                const edited = deckNameEdits[deck.id];
+                                if (edited !== undefined) {
+                                  void renameDeck(deck, edited);
+                                  setDeckNameEdits((m) => {
+                                    const next = { ...m };
+                                    delete next[deck.id];
+                                    return next;
+                                  });
+                                }
+                              }}
+                              aria-label={`Rename deck ${deck.name}`}
+                            />
+                            <span className="muted">{deckCardCount(deck)} cards</span>
+                            <button
+                              type="button"
+                              className="icon-btn"
+                              onClick={() => void duplicateDeckAction(deck)}
+                              title="Duplicate deck"
+                            >
+                              Duplicate
+                            </button>
+                            <button
+                              type="button"
+                              className="icon-btn danger"
+                              onClick={() => void deleteDeckAction(deck)}
+                              title="Delete deck"
+                            >
+                              Delete
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <div className="project-card-actions">
+                    <Button label="Edit in Workshop" onClick={() => navigate(`#/workshop/${project.id}`)} />
+                    <Button
+                      label="Play on Table"
+                      variant="secondary"
+                      onClick={() => navigate(`#/table/${project.id}`)}
+                    />
+                    <Button label="Export" variant="secondary" onClick={() => void handleExport(project)} />
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </>
       )}
     </section>
   );

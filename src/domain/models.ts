@@ -47,6 +47,7 @@ export interface DeckDefinition {
   name: string;
   entries: DeckEntry[];
   defaultBackAssetId?: ID;
+  icon?: string;
   createdAt: number;
   updatedAt: number;
 }

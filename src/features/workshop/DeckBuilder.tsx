@@ -1,6 +1,7 @@
 import { CardDefinition, DeckDefinition, ImageAsset } from '../../domain/models';
 import { deckCardCount } from '../../domain/deck-operations';
 import { Button } from '../../components/ui';
+import { DECK_ICONS, DeckIconGlyph } from '../decks/deckIcons';
 
 export interface DeckBuilderProps {
   decks: DeckDefinition[];
@@ -17,6 +18,7 @@ export interface DeckBuilderProps {
   onTransfer: (deck: DeckDefinition, entryId: string, targetDeckId: string) => void;
   onAddSelectedCards: (deck: DeckDefinition) => void;
   onPlay: (deck: DeckDefinition) => void;
+  onSetIcon: (deck: DeckDefinition, icon: string) => void;
   cards: CardDefinition[];
   selectedCardIds: Set<string>;
   assets: ImageAsset[];
@@ -43,6 +45,9 @@ export function DeckBuilder(props: DeckBuilderProps) {
             className={`deck-tile ${deck.id === props.activeDeckId ? 'active' : ''}`}
             onClick={() => props.setActiveDeckId(deck.id)}
           >
+            {deck.icon && (
+              <DeckIconGlyph iconId={deck.icon} />
+            )}
             <div className="deck-tile-stack" aria-hidden="true">
               {deck.entries.slice(0, 4).map((entry, i) => {
                 const card = props.cards.find((c) => c.id === entry.cardDefinitionId);
@@ -95,6 +100,21 @@ export function DeckBuilder(props: DeckBuilderProps) {
           </div>
 
           <div className="deck-detail-row">
+            <label className="deck-back-picker">
+              Icon
+              <select
+                value={activeDeck.icon ?? ''}
+                onChange={(e) => props.onSetIcon(activeDeck, e.target.value)}
+                aria-label="Deck icon"
+              >
+                <option value="">No icon</option>
+                {DECK_ICONS.map((icon) => (
+                  <option key={icon.id} value={icon.id}>
+                    {icon.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="deck-back-picker">
               Default back
               <select

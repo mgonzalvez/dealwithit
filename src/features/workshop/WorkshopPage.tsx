@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, Dialog, EmptyState } from '../../components/ui';
+import { Button, Dialog, EmptyState, Handoff } from '../../components/ui';
 import {
   deleteCardDefinition,
   deleteDeck,
@@ -529,6 +529,12 @@ export function WorkshopPage({ projectId, navigate }: { projectId?: string; navi
             onAddSelectedToDeck={() => setTab('decks')}
             selectedCount={selectedAssetIds.size}
           />
+
+          <Handoff
+            message="Images are in. Next step: turn them into cards and pair each front with a back in the Cards tab."
+            actionLabel="Go to Cards"
+            onClick={() => setTab('cards')}
+          />
         </>
       )}
 
@@ -571,11 +577,18 @@ export function WorkshopPage({ projectId, navigate }: { projectId?: string; navi
               onDelete={deleteCard}
             />
           )}
+
+          <Handoff
+            message="Cards are defined and backs are assigned. Next step: assemble them into a deck in the Decks tab."
+            actionLabel="Go to Decks"
+            onClick={() => setTab('decks')}
+          />
         </>
       )}
 
       {tab === 'decks' && (
-        <DeckBuilder
+        <>
+          <DeckBuilder
           decks={decks}
           activeDeckId={activeDeckId}
           setActiveDeckId={setActiveDeckId}
@@ -590,11 +603,18 @@ export function WorkshopPage({ projectId, navigate }: { projectId?: string; navi
           onTransfer={(deck, entryId, targetId) => void transferCard(deck, entryId, targetId)}
           onAddSelectedCards={(deck) => void addSelectedCardsToDeck(deck)}
           onPlay={() => navigate(`#/table/${projectId}`)}
+          onSetIcon={(deck, icon) => void updateDeck({ ...deck, icon: icon || undefined })}
           cards={cards}
           selectedCardIds={selectedCardIds}
           assets={assets}
           thumbnails={thumbnails}
         />
+          <Handoff
+            message="Your deck is ready. Next step: open the Table, launch the deck, and start playing."
+            actionLabel="Open the Table"
+            onClick={() => navigate(`#/table/${projectId}`)}
+          />
+        </>
       )}
 
       <Dialog title={preview?.asset.filename ?? 'Preview'} open={preview !== null} onClose={closePreview}>

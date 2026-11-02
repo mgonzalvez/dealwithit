@@ -76,6 +76,14 @@ Last updated: 2026-11-01
 4. Table toolbar: Draw face-down/face-up persists per table across reloads.
 5. Deal N… prompts for a count.
 
+## Quickstart, handoffs, library deck management
+
+- **Quick start guide**: first-time visitors (no projects yet) see a 3-step panel on the Library — Create a project → Import card images → Build decks & play — with buttons that jump straight to the right place.
+- **Step handoffs**: every area ends with a dashed "next step" banner ushering you onward — Library → Workshop, Import → Cards, Cards → Decks, Decks → Table.
+- **Demo deck fixed**: the demo now actually fills its deck (18 cards: 6 generated suits × 3 copies). The old code called the immutable `addEntryToDeck` without reassigning the result and referenced asset ids instead of card ids, producing an empty deck.
+- **Library deck management**: each project card now lists its decks with inline rename (edit + blur/enter to save), icon picker, Duplicate and Delete buttons.
+- **Deck icons**: 24 free icons from the Fractal Symbols library (Felix Thalin, CC BY 4.0 — the same set TokenMaker uses) copied to `public/deck-icons/`, normalized to `fill: currentColor` so they adapt to light/dark themes. Icons show on Library deck rows, Workshop deck gallery tiles, and can be set from both places. Attribution note appears in the quick start panel.
+
 ## Visual Workshop redesign
 
 - **Cards tab**: visual card tiles rendered from the actual card definitions (correct aspect ratio, transform applied). Click a card face to flip front ↔ back. Each tile has a per-card **back picker** (assign any imported image as the back, or the neutral generated back), plus Edit / Duplicate / Delete buttons and a "N in decks" counter. Bulk toolbar: rotate selected 90°, apply a back to all selected cards (or remove backs).
