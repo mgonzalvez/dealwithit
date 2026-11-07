@@ -19,6 +19,7 @@ import { deckCardCount, duplicateDeck } from '../../domain/deck-operations';
 import { DeckDefinition, Project } from '../../domain/models';
 import { buildProjectZip, exportFilename, readProjectZip } from '../export/export';
 import { createDemoProject } from './demo';
+import { createStandardDeckProject } from './standardDeck';
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 MB';
@@ -73,6 +74,19 @@ export function LibraryPage({ navigate, startTour }: { navigate: (hash: string) 
     const projectId = await createDemoProject();
     await refresh();
     setMessage('Demo deck created with 18 sample cards — open the Table to try shuffling and dealing.');
+    return projectId;
+  }
+
+  async function handleStandardDeck() {
+    const existing = (await listProjects()).find((project) => project.name === 'Standard 52-card deck');
+    if (existing) {
+      await refresh();
+      setMessage('The standard deck already exists — open it from the library below.');
+      return existing.id;
+    }
+    const projectId = await createStandardDeckProject();
+    await refresh();
+    setMessage('A full 52-card deck is ready. Open the Table, press Launch, then shuffle and deal.');
     return projectId;
   }
 
@@ -168,6 +182,7 @@ export function LibraryPage({ navigate, startTour }: { navigate: (hash: string) 
           <Button label="Create project" onClick={handleCreate} />
           <Button label="Tour" variant="secondary" onClick={startTour} />
           <Button label="Start with demo deck" variant="secondary" onClick={handleDemo} />
+          <Button label="Play a standard 52-card deck" variant="secondary" onClick={() => void handleStandardDeck()} />
           <Button label="Import project" variant="secondary" onClick={() => importInputRef.current?.click()} />
           <input
             ref={importInputRef}
@@ -195,6 +210,7 @@ export function LibraryPage({ navigate, startTour }: { navigate: (hash: string) 
         <QuickStart
           onCreateProject={handleCreate}
           onDemo={() => void handleDemo()}
+          onStandardDeck={() => void handleStandardDeck()}
           navigate={navigate}
           firstProjectId={null}
         />

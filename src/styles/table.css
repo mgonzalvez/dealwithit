@@ -9,15 +9,32 @@
   width: 1600px;
   height: 1000px;
   transform-origin: 0 0;
-  /* Felt is not a flat colour: it has fuzz, a lighter centre where the light
-     hits, and a darker rim. The base colour comes from the table's settings. */
+  /* Every surface gets the same light: brighter where it hits the middle,
+     darker toward the rim. The material texture is layered on top. */
+  background-image: radial-gradient(120% 90% at 50% 32%, rgba(255, 255, 255, 0.10), rgba(0, 0, 0, 0.16) 62%, rgba(0, 0, 0, 0.30) 100%);
+  box-shadow: inset 0 0 90px rgba(0, 0, 0, 0.32);
+}
+
+/* Felt: a very subtle fuzz plus a fine weave. Not a checkerboard. */
+.table-world.surface-felt {
   background-image:
-    radial-gradient(120% 90% at 50% 32%, rgba(255, 255, 255, 0.11), rgba(0, 0, 0, 0.18) 62%, rgba(0, 0, 0, 0.34) 100%),
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 3px),
-    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.05) 0 1px, transparent 1px 4px),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23f)' opacity='0.18'/%3E%3C/svg%3E");
-  background-size: 100% 100%, 100% 100%, 100% 100%, 180px 180px;
-  box-shadow: inset 0 0 90px rgba(0, 0, 0, 0.35);
+    radial-gradient(120% 90% at 50% 32%, rgba(255, 255, 255, 0.10), rgba(0, 0, 0, 0.16) 62%, rgba(0, 0, 0, 0.30) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23f)' opacity='0.10'/%3E%3C/svg%3E");
+  background-size: 100% 100%, 200px 200px;
+}
+
+/* Wood: grain lines rather than fuzz. */
+.table-world.surface-wood {
+  background-image:
+    radial-gradient(120% 90% at 50% 32%, rgba(255, 255, 255, 0.09), rgba(0, 0, 0, 0.18) 62%, rgba(0, 0, 0, 0.32) 100%),
+    repeating-linear-gradient(92deg, rgba(0, 0, 0, 0.18) 0 2px, transparent 2px 11px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 17px);
+  background-size: 100% 100%, 100% 100%, 100% 100%;
+}
+
+/* Flat surfaces (dark, light) keep only the lighting. */
+.table-world.surface-plain {
+  background-image: radial-gradient(120% 90% at 50% 32%, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.10) 62%, rgba(0, 0, 0, 0.20) 100%);
 }
 
 /* Faint guide so the "invisible" grid is at least suggestively visible. */
@@ -52,38 +69,77 @@
   border-radius: 8px;
 }
 
-/* --- Shuffle: the pack jitters and the layers fan out, then square up --- */
-.table-object.anim-shuffle {
-  animation: riffle 700ms ease-in-out;
+/* --- Shuffle: two halves counter-rotate like opposing propellers, the way
+   Tabletop Simulator sells the idea of a riffle. 500 ms. --- */
+.shuffle-split {
+  position: absolute;
+  inset: 0;
 }
 
-@keyframes riffle {
+.shuffle-half {
+  position: absolute;
+  inset: 0;
+}
+
+.shuffle-half img {
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  display: block;
+}
+
+.shuffle-half.left {
+  clip-path: polygon(0 0, 50% 0, 50% 100%, 0 100%);
+  transform-origin: 50% 50%;
+  animation: propellerLeft 500ms ease-in-out;
+}
+
+.shuffle-half.right {
+  clip-path: polygon(50% 0, 100% 0, 100% 100%, 50% 100%);
+  transform-origin: 50% 50%;
+  animation: propellerRight 500ms ease-in-out;
+}
+
+@keyframes propellerLeft {
   0%,
   100% {
-    transform: rotate(var(--rot, 0deg));
+    transform: rotate(0deg) translate(0, 0);
   }
-  14% {
-    transform: rotate(calc(var(--rot, 0deg) - 3deg)) translate(-14px, -9px) scale(1.02);
+  28% {
+    transform: rotate(16deg) translate(-6px, -6px);
   }
-  32% {
-    transform: rotate(calc(var(--rot, 0deg) + 2.5deg)) translate(12px, 7px) scale(1.01);
+  58% {
+    transform: rotate(-9deg) translate(3px, 3px);
   }
-  52% {
-    transform: rotate(calc(var(--rot, 0deg) - 2deg)) translate(-9px, 11px);
+  82% {
+    transform: rotate(4deg);
   }
-  72% {
-    transform: rotate(calc(var(--rot, 0deg) + 1.4deg)) translate(7px, -5px);
+}
+
+@keyframes propellerRight {
+  0%,
+  100% {
+    transform: rotate(0deg) translate(0, 0);
+  }
+  28% {
+    transform: rotate(-16deg) translate(6px, 6px);
+  }
+  58% {
+    transform: rotate(9deg) translate(-3px, -3px);
+  }
+  82% {
+    transform: rotate(-4deg);
   }
 }
 
 .table-object.anim-shuffle .stack-edge-1 {
-  animation: fan1 700ms ease-in-out;
+  animation: fan1 500ms ease-in-out;
 }
 .table-object.anim-shuffle .stack-edge-2 {
-  animation: fan2 700ms ease-in-out;
+  animation: fan2 500ms ease-in-out;
 }
 .table-object.anim-shuffle .stack-edge-3 {
-  animation: fan3 700ms ease-in-out;
+  animation: fan3 500ms ease-in-out;
 }
 
 @keyframes fan1 {
@@ -92,7 +148,7 @@
     transform: translate(-4px, -4px);
   }
   40% {
-    transform: translate(-14px, -12px);
+    transform: translate(-11px, -9px);
   }
 }
 
@@ -102,7 +158,7 @@
     transform: translate(-8px, -8px);
   }
   45% {
-    transform: translate(-22px, -19px);
+    transform: translate(-18px, -15px);
   }
 }
 
@@ -112,11 +168,11 @@
     transform: translate(-12px, -12px);
   }
   50% {
-    transform: translate(-30px, -26px);
+    transform: translate(-25px, -22px);
   }
 }
 
-/* --- Dealt / placed cards land with a small drop --- */
+/* --- Dealt / placed cards land with a small drop and a slight off-square --- */
 .table-object.anim-dealt {
   animation: dropIn 300ms ease-out;
 }
@@ -131,6 +187,18 @@
     transform: rotate(var(--rot, 0deg)) translate(0, 0) scale(1);
     opacity: 1;
   }
+}
+
+/* The guide is only shown while a card is actually in your hand. */
+.table-world.grid-on::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: var(--grid-x, 127px) var(--grid-y, 178px);
+  pointer-events: none;
 }
 
 /* Cards sit on the felt, they do not float: a warmer, wider shadow. */

@@ -3,11 +3,18 @@ import { Button } from '../../components/ui';
 interface QuickStartProps {
   onCreateProject: () => void;
   onDemo: () => void;
+  onStandardDeck: () => void;
   navigate: (hash: string) => void;
   firstProjectId: string | null;
 }
 
-export function QuickStart({ onCreateProject, onDemo, navigate, firstProjectId }: QuickStartProps) {
+export function QuickStart({
+  onCreateProject,
+  onDemo,
+  onStandardDeck,
+  navigate,
+  firstProjectId
+}: QuickStartProps) {
   const workshopLink = firstProjectId ? `#/workshop/${firstProjectId}` : null;
 
   return (
@@ -17,6 +24,19 @@ export function QuickStart({ onCreateProject, onDemo, navigate, firstProjectId }
         <li className="quickstart-step">
           <span className="step-num">1</span>
           <div>
+            <strong>Nothing to upload? Play a standard deck</strong>
+            <p>
+              Deal With It can build a real 52-card deck (four suits, A to K) on the spot, with a
+              classic back. Shuffle, deal, flip and cut it on the felt immediately.
+            </p>
+          </div>
+          <div className="quickstart-actions">
+            <Button label="Play a standard deck" onClick={onStandardDeck} />
+          </div>
+        </li>
+        <li className="quickstart-step">
+          <span className="step-num">2</span>
+          <div>
             <strong>Create a project</strong>
             <p>
               A project keeps your images, cards, decks and tables together. Start blank, or try
@@ -24,12 +44,12 @@ export function QuickStart({ onCreateProject, onDemo, navigate, firstProjectId }
             </p>
           </div>
           <div className="quickstart-actions">
-            <Button label="New project" onClick={onCreateProject} />
+            <Button label="New project" variant="secondary" onClick={onCreateProject} />
             <Button label="Try the demo" variant="secondary" onClick={onDemo} />
           </div>
         </li>
         <li className="quickstart-step">
-          <span className="step-num">2</span>
+          <span className="step-num">3</span>
           <div>
             <strong>Import your card images</strong>
             <p>
@@ -42,7 +62,7 @@ export function QuickStart({ onCreateProject, onDemo, navigate, firstProjectId }
           </div>
         </li>
         <li className="quickstart-step">
-          <span className="step-num">3</span>
+          <span className="step-num">4</span>
           <div>
             <strong>Build decks, then play</strong>
             <p>

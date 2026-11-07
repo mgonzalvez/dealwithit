@@ -43,9 +43,18 @@ export function softSnap(
 }
 
 /**
- * How sticky the grid should feel: about a third of a card, never more than
- * 30 table units (~15 mm).
+ * How sticky the grid should feel: about a fifth of a card, never more than
+ * 20 table units (~10 mm). Anything further off stays exactly where you put it.
  */
 export function snapTolerance(cardSize: number): number {
-  return Math.min(cardSize * 0.33, 30);
+  return Math.min(cardSize * 0.2, 20);
+}
+
+/**
+ * Straighten a card that is within `within` degrees of square. Dealt cards land
+ * 1-2 degrees off; this is the squaring-up tap you give them.
+ */
+export function snapRotation(deg: number, within = 4): number {
+  const nearest = Math.round(deg / 90) * 90 + 0;
+  return Math.abs(deg - nearest) <= within ? nearest : deg;
 }

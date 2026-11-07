@@ -24,6 +24,7 @@ import {
 } from '../../domain/models';
 import {
   bringToFront,
+  cutStack,
   dealFromStack,
   drawFromStack,
   duplicateObject,
@@ -40,14 +41,21 @@ import {
 import { deckCardCount } from '../../domain/deck-operations';
 import { loadImage, renderCardPreview } from '../workshop/cardRenderer';
 import { playTableSound, setSoundMuted, type TableSound } from './sounds';
-import { softSnap, snapTolerance } from './snap';
+import { softSnap, snapRotation, snapTolerance } from './snap';
 
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 3;
 const MM_TO_UNITS = 2; // 1 mm = 2 logical table units
 const HOLD_TO_GRAB_MS = 700; // hold a stack this long to move the whole deck
 const FELT_GREEN = '#15372a';
-const SHUFFLE_MS = 700;
+const SHUFFLE_MS = 500;
+
+/** Which texture a surface colour should get. Felt fuzz is for felt only. */
+function surfaceClass(background: string): string {
+  if (background === '#7a5c3f') return 'surface-wood';
+  if (background === '#22262b' || background === '#e8e3d8') return 'surface-plain';
+  return 'surface-felt';
+}
 
 interface Snapshot {
   objects: TableObject[];
@@ -96,6 +104,7 @@ export function TablePage({
   const [drawFaceUp, setDrawFaceUp] = useState(false);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [grabbingId, setGrabbingId] = useState<string | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
   const [soundOn, setSoundOn] = useState(true);
   const [snapOn, setSnapOn] = useState(true);
   const [animations, setAnimations] = useState<Map<string, string>>(new Map());
@@ -491,6 +500,14 @@ export function TablePage({
     return { w: Math.round(card.widthMm * MM_TO_UNITS), h: Math.round(card.heightMm * MM_TO_UNITS) };
   }
 
+  /** Grid pitch shown while a particular card is in hand. */
+  function gridPitch(objectId: string | null): { w: number; h: number } {
+    if (!objectId) return { w: 127, h: 178 };
+    const object = tableRef.current?.objects.find((o) => o.id === objectId);
+    const top = object?.cardInstances[object.cardInstances.length - 1];
+    return cardSize(top ? cards.get(top.cardDefinitionId) : undefined);
+  }
+
   function startPan(event: React.PointerEvent) {
     const current = tableRef.current;
     if (!current) return;
@@ -510,6 +527,7 @@ export function TablePage({
     event.preventDefault();
     event.stopPropagation();
     setSelectedId(object.id);
+    setDraggingId(object.id);
     // Dragging a stack peels its top card (drag-to-draw). Hold Shift to slide
     // the whole stack instead.
     const peel =
@@ -655,8 +673,17 @@ export function TablePage({
     const current = tableRef.current;
     if (current && drag.moved) {
       const dragged = current.objects.find((o) => o.id === drag.id);
+      let objects = current.objects;
+      let changed = false;
+
+      // Squaring up: a card within a few degrees of square straightens itself.
+      if (snapOn && dragged) {
+        objects = objects.map((o) => (o.id === drag.id ? { ...o, rotationDeg: snapRotation(o.rotationDeg) } : o));
+        changed = objects.some((o, index) => o.rotationDeg !== current.objects[index].rotationDeg);
+      }
+
       if (dragged && dragged.type === 'card') {
-        const target = current.objects.find(
+        const target = objects.find(
           (o) =>
             o.id !== dragged.id &&
             o.type === 'stack' &&
@@ -665,16 +692,18 @@ export function TablePage({
             Math.abs(dragged.y - o.y) <= cardSize(cards.get(o.cardInstances[o.cardInstances.length - 1].cardDefinitionId)).h / 2
         );
         if (target) {
-          mutate(
-            current.objects
-              .filter((o) => o.id !== dragged.id)
-              .map((o) => (o.id === target.id ? mergeStack(target, dragged) : o))
-          );
+          objects = objects
+            .filter((o) => o.id !== dragged.id)
+            .map((o) => (o.id === target.id ? mergeStack(target, dragged) : o));
+          changed = true;
           sound('place');
         }
       }
+
+      if (changed) mutate(objects);
     }
     dragRef.current = null;
+    setDraggingId(null);
   }
 
   function handleCanvasPointerDown(event: React.PointerEvent) {
@@ -699,7 +728,10 @@ export function TablePage({
   }
 
   function handleCanvasPointerUp(event: React.PointerEvent) {
-    if (dragRef.current?.pointerId === event.pointerId) dragRef.current = null;
+    if (dragRef.current?.pointerId === event.pointerId) {
+      dragRef.current = null;
+      setDraggingId(null);
+    }
   }
 
   function launch(deck: DeckDefinition) {
@@ -777,6 +809,14 @@ export function TablePage({
     mutate(shuffleStack(object, current.objects));
     animate([object.id], 'shuffle', SHUFFLE_MS);
     sound('shuffle');
+  }
+
+  function cutSelected() {
+    const object = selectedObject();
+    const current = tableRef.current;
+    if (!object || !current) return;
+    mutate(cutStack(object, current.objects));
+    sound('place');
   }
 
   function drawOne() {
@@ -1009,10 +1049,12 @@ export function TablePage({
           onPointerUp={handleCanvasPointerUp}
         >
           <div
-            className={`table-world ${snapOn ? 'grid-on' : ''}`}
+            className={`table-world ${snapOn && draggingId ? 'grid-on' : ''} ${surfaceClass(table.background)}`}
             style={{
               transform: `translate(${table.camera.x}px, ${table.camera.y}px) scale(${table.camera.zoom})`,
-              backgroundColor: table.background
+              backgroundColor: table.background,
+              ['--grid-x' as string]: `${gridPitch(draggingId).w}px`,
+              ['--grid-y' as string]: `${gridPitch(draggingId).h}px`
             }}
           >
             {table.objects.map((object) => {
@@ -1053,7 +1095,14 @@ export function TablePage({
                   {Array.from({ length: layers }, (_, i) => (
                     <div key={i} className={`stack-edge stack-edge-${i + 1}`} aria-hidden="true" />
                   ))}
-                  {url && <img src={url} alt={card?.name ?? 'Card'} draggable={false} />}
+                  {animation === 'shuffle' ? (
+                    <div className="shuffle-split" aria-hidden="true">
+                      <div className="shuffle-half left"><img src={url} alt="" /></div>
+                      <div className="shuffle-half right"><img src={url} alt="" /></div>
+                    </div>
+                  ) : (
+                    url && <img src={url} alt={card?.name ?? 'Card'} draggable={false} />
+                  )}
                   {isStack && <span className="count-badge">{object.cardInstances.length}</span>}
                 </div>
               );
@@ -1111,6 +1160,9 @@ export function TablePage({
                     <>
                       <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects, o) => shuffleStack(o, objects), 'shuffle')}>
                         Shuffle
+                      </button>
+                      <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects, o) => cutStack(o, objects), 'place')}>
+                        Cut
                       </button>
                       <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects, o) => drawFromStack(o, objects, { faceUp: drawFaceUp }), 'draw')}>
                         Draw 1
@@ -1184,6 +1236,9 @@ export function TablePage({
                 <>
                   <button type="button" className="btn btn-primary" onClick={shuffleSelected}>
                     Shuffle
+                  </button>
+                  <button type="button" className="btn btn-secondary" onClick={cutSelected}>
+                    Cut
                   </button>
                   <button type="button" className="btn btn-primary" onClick={drawOne}>
                     Draw 1

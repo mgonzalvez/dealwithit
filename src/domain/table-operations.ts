@@ -230,3 +230,30 @@ export function shuffleStack(stack: TableObject, objects: TableObject[]): TableO
       : o
   );
 }
+
+/**
+ * Cut a stack: lift the top `fraction` of the pack and set it down beside the
+ * rest, the way you would cut a real deck. The recipe is never touched.
+ */
+export function cutStack(stack: TableObject, objects: TableObject[], fraction = 0.5): TableObject[] {
+  const total = stack.cardInstances.length;
+  if (stack.type !== 'stack' || total < 2) return objects;
+  const cut = Math.max(1, Math.min(total - 1, Math.round(total * fraction)));
+  const bottom = stack.cardInstances.slice(0, total - cut);
+  const top = stack.cardInstances.slice(total - cut);
+  const size = 127;
+  const result = objects.filter((o) => o.id !== stack.id);
+  if (bottom.length > 0) result.push({ ...stack, cardInstances: bottom });
+  result.push({
+    id: crypto.randomUUID(),
+    type: 'stack',
+    x: Math.min(1600 - size / 2, stack.x + size * 1.2),
+    y: stack.y,
+    z: Math.max(...objects.map((o) => o.z), 0) + 1,
+    rotationDeg: 0,
+    cardInstances: top,
+    label: stack.label,
+    sourceDeckId: stack.sourceDeckId
+  });
+  return result;
+}

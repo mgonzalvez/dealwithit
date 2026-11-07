@@ -1,137 +1,118 @@
 # Table Realism — to-do list
 
-_Last updated: 2026-11-07 (after the "make the table feel real" session)_
+_Last updated: 2026-11-07 (decisions recorded after the "make the table feel real" session)_
 
-Legend: ✅ shipped in this pass · 🔶 shipped, needs your call on taste · ⬜ not built yet
-
----
-
-## 1. Face-down decks must show the real card back
-
-**Request:** when a deck sits face-down on the table, the top card should show the back I chose in the Workshop — generated pattern or uploaded image.
-
-**Status:** ✅ Done.
-
-- The stack's top card is now drawn from `resolveBack(card, deck)` where `deck` is the stack's **own** `sourceDeckId` (previously the face cache used the first deck that happened to contain the card, so a deck-specific back could be wrong).
-- Faces are cached per `card + face + deck`, so changing a back is picked up the next time you open the table.
-- The tray thumbnail is a real render of that deck's back (pattern **or** image), with a plain-language label underneath: "Classic diamonds back", "Image back", "Neutral back".
-
-**Open:** ⬜ If a deck has **no** back chosen, the fallback is a flat grey rectangle. Should the neutral default be a proper generic card back (subtle border + a small Deal With It emblem)?
+Legend: ✅ shipped · 🔶 shipped, tune later · ⬜ not built yet
 
 ---
 
-## 2. Flip sound
+## 1. Face-down decks must show the real card back — ✅
 
-**Request:** hear a card flip.
+- The stack's top card is drawn from `resolveBack(card, deck)` using the stack's **own** `sourceDeckId`. The old face cache keyed faces by card only (using the first deck that happened to contain it), which is why a cream back in the Workshop still showed a green back on the table.
+- Faces are cached per `card + face + deck`.
+- Tray thumbnail is a true render of that deck's back — pattern **or** uploaded image — with a plain label ("Classic diamonds back", "Image back", "Neutral back").
 
-**Status:** 🔶 Done — synthesised (no audio files, so nothing to download, works offline).
-
-Built from a filtered noise burst + a low felt thud. Plays on: double-click flip, "Flip top", "Rotate 90°".
-
-**Open questions**
-- Is the volume right? Master gain is 0.42 (roughly −8 dB).
-- Do you want a **real recording** instead of synthesis? I'd need a CC-licensed clip (or you can supply one) — files would ship in `public/sounds/`.
-- Should flipping a card while **dragging** also make a sound, or only explicit flip actions?
+**Still open:** nothing. A card with no back chosen now shows a proper generic back (dark blue lattice, double frame, centre emblem) instead of a flat grey rectangle.
 
 ---
 
-## 3. Shuffle: sound + animation
+## 2. Flip sound — ✅ (synthesised)
 
-**Request:** a riffle sound and a visible shuffle.
+Filtered noise burst + low felt thud. Plays on double-click flip, "Flip top" and "Rotate 90°". Master gain 0.42.
 
-**Status:** 🔶 Done.
-
-- Sound: 12 small riffle clicks with random spacing, ending in a "square up" clack.
-- Animation: 700 ms — the stack jitters/rotates a few degrees while the layers underneath fan out and then settle. Disabled automatically when `prefers-reduced-motion` is on.
-
-**Open questions**
-- Should the animation actually **split the pack into two halves and interleave** (a real riffle), or is the jitter + fanning layers enough? Splitting needs the stack to be drawn as two separate piles for a moment — a bigger change.
-- Duration: 700 ms. Too long for fast play? 350 ms?
-- Should shuffle also work from the tray (shuffle before launching)?
+**Decisions:** synthesis is fine (no audio files) · volume is right · sounds also play on drag-related actions.
+**Later:** if you ever want a real recorded flip, drop a CC-licensed clip in `public/sounds/` and swap the synth call.
 
 ---
 
-## 4. Deal: gentle "thwip"
+## 3. Shuffle sound + animation — ✅
 
-**Request:** a soft thwip as each card lands.
+- Sound: 12 riffle clicks with random spacing (~0.4 s) ending in a square-up clack.
+- Animation: the pack splits into two clipped halves that counter-rotate like opposing propellers (Tabletop Simulator style), while the layers underneath fan out. **500 ms.**
 
-**Status:** 🔶 Done.
-
-- Each dealt card plays a swoosh + small landing thud, staggered 150 ms apart, and the card drops in with a 300 ms `dropIn` animation.
-
-**Open questions**
-- Deal spacing: cards currently land 80 units apart in rows of 8 (≈40 mm). Should dealt cards spread to **card-width** spacing (127 units) so they read like a real dealt row?
-- Should dealt cards land with a slight random rotation (±2°), like a real deal?
-- Is the stagger right — 150 ms per card, or faster (80 ms)?
+**Decisions:** propeller-style, 500 ms.
+**Later ideas:** riffle from the tray before launching; a real two-half split with interleaving.
 
 ---
 
-## 5. Table surface that looks like a card table
+## 4. Deal: gentle "thwip" — ✅
 
-**Request:** deeper green felt with a felt-ish pattern by default.
+Swoosh + landing thud per card, staggered 150 ms. Cards drop in with a 300 ms animation and land **±2° off-square**, like a real deal.
 
-**Status:** ✅ Done.
-
-- New default: `#15372a` (deep felt green). Any table saved with the old `#4a5b4f` is migrated automatically on load.
-- Surface options: Deep felt green, Blue felt, Red felt, Wood, Dark, Light.
-- The felt is layered: lighter centre where the light hits, darker rim, fine cross-hatch weave, and an SVG fractal-noise fuzz. Cards get a warmer, wider shadow so they sit **on** the felt rather than float.
-
-**Open questions**
-- Is the fuzz too strong / too subtle at 180px tile size?
-- Want a visible table edge (rail), or corner "table cloth" folds?
-- Should the surface pick a **texture per material** (wood grain for wood, plain for dark/light)?
+**Decisions:** 80-unit spacing kept for now · random ±2° landing rotation yes.
+**Later:** faster stagger (80 ms) if 150 ms feels slow for big deals.
 
 ---
 
-## 6. Soft ("fuzzy") grid snapping
+## 5. Table surface — ✅
 
-**Request:** cards snap to an invisible grid, mainly horizontal, also vertical for columns — but not rigidly.
+- Default deep felt green `#15372a`; tables saved with the old `#4a5b4f` migrate automatically.
+- Surfaces: Deep felt green, Blue felt, Red felt, Wood, Dark, Light.
+- **Subtle** fuzz (SVG fractal noise at 10% opacity), lighter centre, darker rim. No table edge/rail.
+- Per-material texture: felt gets fuzz, wood gets grain lines, dark/light stay flat with only the lighting gradient.
 
-**Status:** 🔶 Done.
-
-- **Snap on/off** button in the table toolbar, persisted per device (`tableSnap`).
-- A card snaps to the nearest grid line (pitch = that card's own width/height, anchored at the table origin) **or** to the position of a card already on the table — whichever is nearer.
-- It only snaps if the nearest line is within `min(33% of card size, 30 units ≈ 15 mm)`. Move a card a bit further and it stays exactly where you put it.
-- A very faint grid guide is drawn when Snap is on (7% opacity).
-
-**Open questions**
-- Grid pitch: **each card's own size** (cards tile perfectly) or a fixed poker pitch (63.5 × 88.9 mm) so mixed-size cards still line up to one lattice?
-- Is the guide line helpful, or should the grid be *completely* invisible?
-- Tolerance: 33% feels right; want it stickier (50%) or looser (20%)?
-- Should snapping also straighten rotation to 0°/90° when a card is within a few degrees?
-- Should snapping apply **while dragging** (magnetic feel, currently yes) or only when you release?
+**Decisions:** subtle fuzz · no table edge · per-material textures.
 
 ---
 
-## 7. Extra realism items worth deciding on
+## 6. Soft ("fuzzy") grid snapping — ✅
 
-| Idea | Why | Decision needed |
+- **Snap on/off** in the table toolbar, persisted (`tableSnap`).
+- A dragged card is pulled to the nearest grid line (pitch = **that card's own width/height**) **or** to a card already on the table — whichever is nearer.
+- Only snaps when within `min(20% of the card size, 20 units ≈ 10 mm)` — deliberately loose.
+- **Magnetic while dragging** (applies live, not just on release).
+- Rotation straightens to the nearest 90° when within 4°.
+- Faint guide lines appear **only while a card is in your hand**, sized to that card.
+
+**Decisions:** card-size pitch · guide only during drag · looser tolerance (20%) · rotation straightening yes · magnetic while dragging.
+
+---
+
+## 7. Cut the deck — ✅
+
+`cutStack()` lifts the top half of a stack and sets it down beside the rest (context menu → **Cut**, and a Cut button in the stack action bar). The deck recipe is never touched. Tested.
+
+---
+
+## 8. Built-in standard 52-card deck — ✅
+
+A one-click **"Play a standard 52-card deck"** in the Library creates a real poker deck (4 suits × A–K, drawn procedurally with recognisable pip layouts, red/black suits, corner rank + suit glyphs mirrored at both ends), a classic generated back, and puts the pack face-down on the felt so you can shuffle, cut, deal and play immediately — no uploads needed.
+
+- Pure spec: `src/domain/standard-deck.ts` (suits, ranks, pip layouts) — unit tested.
+- Art + persistence: `src/features/library/standardDeck.ts` (canvas → PNG blobs, stored as ordinary assets/cards/deck).
+- Documented in `README.md` under "Play straight away — the built-in standard deck".
+- Cards are normal cards: rename, duplicate, re-back, or add copies.
+
+**Later ideas:** Joker support, two decks, a "bridge" size variant, and a small set of rule-free mini-games (e.g. a solitaire layout) as presets.
+
+---
+
+## 9. Extra realism ideas still open
+
+| Idea | Why | Status |
 |---|---|---|
-| Card lift on drag | Real cards lift and cast a bigger shadow | Already partly there (`grabbing` shadow) — deepen it? |
-| Cards tilt slightly when dropped on a stack | Stacks are never perfectly square | Add ±1–2° jitter? |
-| Sound when a card merges into a stack | That's the "clack" of squaring a pile | Done (place/gather) — want it louder? |
-| Sound on draw by dragging off a stack | The peel sound | Done |
-| First-sound unlock | Browsers require a user gesture before audio plays; audio starts on your first interaction | Acceptable? |
-| Per-table sound setting vs global | Currently global (`tableSound`) | Per table? |
-| Deck "cut" — split a stack into two | Real deck handling | Add as a table action? |
-| Card thickness illusion for big stacks | A 52-card pile should look thick | Draw more edges when count is high? |
+| Cards lift and cast a bigger shadow while dragged | Real cards rise off the felt | Partly there (`grabbing` shadow) — deepen? |
+| Stack thickness illusion for 52-card piles | A big pile should look thick | ⬜ Draw more edges as count grows |
+| Per-table sound setting | Currently global (`tableSound`) | ⬜ Decide if per-table |
+| First-sound unlock | Browsers need a gesture before audio; audio starts on the first interaction | ⬜ Confirm acceptable |
+| Squaring-up tap animation | A visual "tap" when a stack is gathered | ⬜ Nice-to-have |
+| Card backs for the standard deck variants | Red/blue classic backs | ⬜ Add a back selector for the standard deck |
 
 ---
 
-## What to test by hand
+## Verified gates
 
-1. Workshop → Decks → **Choose a back** → cream pattern → Table → tray thumbnail and face-down stack both show the cream back.
-2. Workshop → Decks → **Use an image** → Table → thumbnail shows that image.
-3. Shuffle a stack: riffle sound + 700 ms jitter.
-4. Deal 5: staggered thwips, cards drop in.
-5. Drag a card near a card already on the table → it lines up. Drag it further → it stays where you put it.
-6. Turn Snap off → nothing snaps.
-7. Turn Sound off → silent.
+- 105 unit/integration tests across 12 files (snap logic, cutting, deal jitter, standard-deck spec, plus everything before).
+- Lint, typecheck, build and Pages deploy all green.
+- Standard card art and the neutral back checked by rendering in headless Chrome.
 
----
+## Manual test checklist
 
-## Technical notes
-
-- Sounds are synthesised in `src/features/table/sounds.ts` with the Web Audio API. No asset files, no network, PWA/offline safe.
-- Snap logic is pure and unit-tested in `src/test/snap.test.ts` (7 tests).
-- Felt texture + animations live in `src/styles/table.css`; animations respect `prefers-reduced-motion`.
+1. Library → **Play a standard 52-card deck** → Table shows a face-down pack with the blue diamonds back.
+2. Shuffle → propeller split + riffle sound, 500 ms.
+3. Deal 5 → staggered thwips, cards land slightly crooked.
+4. Drag one of those cards and drop it near the grid line → it straightens to 0°.
+5. Drag a card deliberately off-grid → it stays put.
+6. Snap off → nothing snaps, no guide lines.
+7. Right-click a stack → **Cut** → two piles, each with its own back.
+8. Workshop → choose a cream back → Table tray thumbnail and face-down stack both show cream.

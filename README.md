@@ -22,6 +22,42 @@ a custom domain; DNS setup is documented below and not yet verified).
 > An independent project from GonzHome. (Attribution of inspiration only; no
 > affiliation, endorsement, or shared assets.)
 
+## Play straight away — the built-in standard deck
+
+You do not need to upload anything to play. **Play a standard 52-card deck** on
+the Library page builds a real poker deck (four suits, A to K, drawn by code in
+the recognisable layout: pips where real cards put them, red hearts/diamonds,
+black clubs/spades) with a classic generated back, and puts the pack face-down
+on the felt. Shuffle, cut, deal, draw, flip — blackjack, poker, hearts, rummy
+and other standard games are playable from the first visit.
+
+- Deck art is generated on the canvas (`src/domain/standard-deck.ts` holds the
+  pure rank/suit/pip layout, `src/features/library/standardDeck.ts` draws and
+  stores the cards as normal image assets).
+- Because they are ordinary cards and decks, you can rename them, duplicate
+  them, change the back, or add more copies — the standard deck is just a
+  starting point, not a special case.
+
+## The table feels like a table
+
+- **Felt surface** — deep felt green by default (blue felt, red felt, wood, dark
+  and light options too), with a subtle fuzz, a lighter centre and a darker rim.
+- **Sounds** — synthesised with the Web Audio API (no audio files, so nothing to
+  download and nothing that breaks offline use): a riffle when you shuffle, a
+  snap when a card flips, a soft thwip as cards are dealt, a clack when a card
+  joins a stack. Toggle **Sound on/off** in the table toolbar.
+- **Shuffle animation** — the pack splits into two halves that counter-rotate
+  like opposing propellers (the Tabletop Simulator shorthand for a riffle), for
+  500 ms.
+- **Dealt cards land slightly off-square** (±2°), like a real deal, and are
+  pulled square again when Snap is on.
+- **Soft grid snapping** — with **Snap on**, a card you are dragging is pulled
+  to the nearest grid line (pitch = that card's own size) or to a card it is
+  already near, but only if it is within about a fifth of a card. Anything
+  further off stays exactly where you put it. Faint guide lines appear only
+  while a card is in your hand.
+- **Cut** — split a stack in two from the stack menu, like cutting a real deck.
+
 ## Setup
 
 ```bash

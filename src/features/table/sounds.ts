@@ -95,15 +95,15 @@ function shuffle(ac: AudioContext) {
   for (let i = 0; i < 12; i += 1) {
     burst(ac, {
       at: t,
-      duration: 0.028,
+      duration: 0.026,
       frequency: 800 + Math.random() * 900,
       gain: 0.13 + Math.random() * 0.08,
       q: 0.9
     });
-    t += 0.038 + Math.random() * 0.032;
+    t += 0.03 + Math.random() * 0.02;
   }
-  burst(ac, { at: t + 0.05, duration: 0.07, frequency: 1300, sweepTo: 500, gain: 0.26, q: 0.6 });
-  thud(ac, t + 0.06, 110, 0.12, 0.22);
+  burst(ac, { at: t + 0.03, duration: 0.06, frequency: 1300, sweepTo: 500, gain: 0.24, q: 0.6 });
+  thud(ac, t + 0.04, 110, 0.1, 0.2);
 }
 
 /** Dealing: the card slides off the pack ("thwip") and lands on the felt. */

@@ -104,6 +104,60 @@ export function drawGeneratedBack(
 }
 
 /**
+ * The fallback back for a card nobody gave a back to. It is not a flat grey
+ * rectangle: it reads as a real generic playing-card back — dark blue felt,
+ * a double frame, a diamond lattice and a centre emblem.
+ */
+export function drawNeutralBack(ctx: CanvasRenderingContext2D, width: number, height: number): void {
+  const base = '#1f3a52';
+  const ink = '#8fb2e6';
+  const accent = '#2f5c86';
+  ctx.fillStyle = base;
+  ctx.fillRect(0, 0, width, height);
+
+  const step = Math.max(10, Math.round(Math.min(width, height) / 7));
+  ctx.fillStyle = accent;
+  for (let y = 0; y < height + step; y += step) {
+    for (let x = 0; x < width + step; x += step) {
+      const cx = x + (Math.floor(y / step) % 2 === 0 ? step / 2 : 0);
+      const cy = y;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - step * 0.34);
+      ctx.lineTo(cx + step * 0.34, cy);
+      ctx.lineTo(cx, cy + step * 0.34);
+      ctx.lineTo(cx - step * 0.34, cy);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  const inset = Math.min(width, height) * 0.06;
+  ctx.strokeStyle = ink;
+  ctx.lineWidth = Math.max(1, inset * 0.35);
+  ctx.strokeRect(inset / 2, inset / 2, width - inset, height - inset);
+  ctx.lineWidth = Math.max(1, inset * 0.15);
+  ctx.strokeRect(inset * 1.4, inset * 1.4, width - inset * 2.8, height - inset * 2.8);
+
+  // Centre emblem: a small card inside a circle.
+  const cx = width / 2;
+  const cy = height / 2;
+  const radius = Math.min(width, height) * 0.16;
+  ctx.strokeStyle = ink;
+  ctx.lineWidth = Math.max(1, radius * 0.09);
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = ink;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - radius * 0.55);
+  ctx.lineTo(cx + radius * 0.55, cy);
+  ctx.lineTo(cx, cy + radius * 0.55);
+  ctx.lineTo(cx - radius * 0.55, cy);
+  ctx.closePath();
+  ctx.fill();
+}
+
+/**
  * Draw a card definition onto a canvas applying its non-destructive
  * transform (rotation, fit, zoom, pan). The original image blob is never
  * modified — this is presentation only and is reused by the Table (M3).
@@ -134,27 +188,12 @@ export function renderCardPreview(
 
   const image = face === 'front' ? frontImage : backImage;
   if (!image) {
-    if (face === 'back' && backDesign) {
-      drawGeneratedBack(ctx, backDesign, width, height);
+    if (face === 'back') {
+      if (backDesign) drawGeneratedBack(ctx, backDesign, width, height);
+      else drawNeutralBack(ctx, width, height);
       return;
     }
-    // Neutral generated back.
-    ctx.fillStyle = '#3b4a40';
-    ctx.fillRect(2, 2, width - 4, height - 4);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
-    ctx.lineWidth = 1;
-    for (let x = 10; x < width; x += 22) {
-      ctx.beginPath();
-      ctx.moveTo(x, 2);
-      ctx.lineTo(x, height - 2);
-      ctx.stroke();
-    }
-    for (let y = 10; y < height; y += 22) {
-      ctx.beginPath();
-      ctx.moveTo(2, y);
-      ctx.lineTo(width - 2, y);
-      ctx.stroke();
-    }
+    // A front with no image is just the blank card stock.
     return;
   }
 

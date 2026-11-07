@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   bringToFront,
+  cutStack,
   dealFromStack,
   drawFromStack,
   duplicateObject,
@@ -239,5 +240,32 @@ describe('dealing, stacking and z-order', () => {
     const s = stack(2);
     const other: TableObject = { id: 'other', type: 'card', x: 0, y: 0, z: 0, rotationDeg: 0, cardInstances: [] };
     expect(removeObject([s, other], 'other').length).toBe(1);
+  });
+});
+
+describe('cutting a deck', () => {
+  it('splits the pack into two stacks without touching the recipe', () => {
+    const s = stack(10);
+    const objects = cutStack(s, [s], 0.5);
+    const piles = objects.filter((o) => o.type === 'stack');
+    expect(piles.length).toBe(2);
+    expect(piles.reduce((sum, pile) => sum + pile.cardInstances.length, 0)).toBe(10);
+    const lifted = piles.find((pile) => pile.id !== s.id);
+    expect(lifted?.cardInstances.length).toBe(5);
+    expect(lifted?.cardInstances[0].instanceId).toBe('inst-5');
+    expect(lifted?.sourceDeckId).toBe(s.sourceDeckId);
+  });
+
+  it('does nothing with a stack too small to cut', () => {
+    const s = stack(1);
+    expect(cutStack(s, [s], 0.5).length).toBe(1);
+  });
+
+  it('dealt cards land with a small off-square jitter (never more than 2 degrees)', () => {
+    const s = stack(12);
+    const objects = dealFromStack(s, [s], 6);
+    for (const object of objects.filter((o) => o.type === 'card')) {
+      expect(Math.abs(object.rotationDeg)).toBeLessThanOrEqual(2);
+    }
   });
 });
