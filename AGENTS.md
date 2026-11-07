@@ -145,6 +145,11 @@ Run `npm test`, `npm run lint` and `npm run typecheck` before claiming any chang
 ## Deployment status (verified 2026-11-07)
 
 - Pages is configured as **workflow-built** (`build_type: "workflow"`, source branch `main`), so the site is served from the Actions artifact, not from files committed to the repo.
-- `public/CNAME` still declares `dealwithit.gonzhome.us`; that domain does not resolve until a DNS CNAME record is added at `gonzhome.us`. Until then the working URL is `https://mgonzalvez.github.io/dealwithit/`.
-- Historical failure (fixed 2026-11-07): `npm ci` crashed with npm's "Exit handler never called!" on the deprecated `node-version: 20`, so `eslint` was never installed and the build aborted with exit 127. The workflow now uses Node 22, `npm ci --no-audit --no-fund`, a relative Vite base, and a proper `github-pages` deployment environment.
+- **Live and verified 2026-11-07:** `https://mgonzalvez.github.io/dealwithit/` returns 200; the hashed JS/CSS, `sw.js`, `manifest.webmanifest`, deck icons and app icons all resolve.
+- `public/CNAME` still declares `dealwithit.gonzhome.us`, but that domain does not resolve (no DNS record yet). Until it is added at `gonzhome.us`, the working URL is the github.io one. The relative Vite base (`./`) means the same artifact works at either address.
+- Root cause of the long-running deploy failures: `package-lock.json` was generated on a machine whose npm registry is Apple's internal mirror (`npm.apple.com`, `artifacts.apple.com/artifactory/api/npm/npm-apple`), so `npm ci` on GitHub runners failed with `ENOTFOUND` — npm's generic "Exit handler never called!" crash was masking it. All 225 `resolved` URLs were normalized to `https://registry.npmjs.org/`, and the workflow now uses Node 24 with a proper `github-pages` deployment environment.
+  After regenerating the lockfile locally, re-check the hosts before pushing:
+  ```bash
+  grep -o '"resolved": "https://[^"]*"' package-lock.json | sed 's|.*"https://\([^/]*\)/.*|\1|' | sort | uniq -c
+  ```
 - Always verify with `curl -I https://mgonzalvez.github.io/dealwithit/` (expect 200) and `gh run list` (expect a successful deploy) before reporting the site as live.

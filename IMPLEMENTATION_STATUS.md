@@ -1,6 +1,6 @@
 # Implementation Status
 
-Last updated: 2026-11-02
+Last updated: 2026-11-07
 
 | Milestone | Status | Notes |
 |---|---|---|
@@ -122,6 +122,7 @@ Last updated: 2026-11-02
 
 | Date | Issue | Fix |
 |------|-------|-----|
+| 2026-11-07 | GitHub Pages deploy failed on every push (`npm ci` → "Exit handler never called!" / `ENOTFOUND`) | `package-lock.json` pinned every `resolved` URL to Apple's internal npm mirror (`npm.apple.com`, `artifacts.apple.com/...`). Normalized all 225 entries to `registry.npmjs.org`, bumped Actions to Node 24, switched the Vite base to relative `./`, and added the `github-pages` deployment environment. Site now publishes to https://mgonzalvez.github.io/dealwithit/ |
 | 2026-11-01 | Could not drag a card off a deck on desktop (Mac) — drawing only worked via buttons | Dragging a stack now peels its top card (drag-to-draw): the card follows the pointer, honors the Draw face-up/down setting, and can be dropped anywhere (onto another stack merges it). A click without movement just selects. Hold **Shift** while dragging a stack to slide the whole stack instead. |
 | 2026-11-02 | Demo deck tiles showed filenames instead of thumbnails | Demo assets now store generated thumbnails; the Workshop also auto-generates any missing thumbnail on load (self-healing for older projects). |
 | 2026-11-02 | Delete project threw Dexie `SchemaError` (thumbnails not indexed by projectId) | Added Dexie **version 2** migration indexing `thumbnails.assetId, projectId`. Existing databases upgrade automatically. |
@@ -135,4 +136,4 @@ Last updated: 2026-11-02
 1. Playwright E2E (M6+ nice-to-have) — automated tests cover domain logic, import/export and performance budgets.
 2. ~~M6 Card Extractor bridge~~ — implemented against the verified export contract (no manifest; fronts/backs index pairing).
 3. Bulk flip/move.
-4. Verify `dealwithit.gonzhome.us` DNS and test install/offline on a physical iPad.
+4. Verify `dealwithit.gonzhome.us` DNS (add a CNAME to `mgonzalvez.github.io`) and test install/offline on a physical iPad.

@@ -26,7 +26,7 @@ a custom domain; DNS setup is documented below and not yet verified).
 
 ```bash
 npm install
-npm run dev        # local dev server (http://localhost:5173/dealwithit/)
+npm run dev        # local dev server (http://localhost:5173/)
 npm run lint       # ESLint
 npm run typecheck  # strict TypeScript
 npm test           # Vitest (domain logic + schemas)
@@ -36,13 +36,15 @@ npm run preview    # preview the built app
 
 ## Deployment (GitHub Pages)
 
+**Live now:** https://mgonzalvez.github.io/dealwithit/
+
 1. Push to the `dealwithit` repository.
-2. Enable GitHub Pages (source: GitHub Actions — the `deploy.yml` workflow
-   builds and publishes `dist/`).
-3. For the custom domain: add a CNAME record for `dealwithit.gonzhome.us`
-   pointing to your GitHub Pages hostname (`mgonzalvez.github.io`), and keep
-   `public/CNAME` in the repo. Verify DNS resolves before claiming the site
-   is live.
+2. GitHub Pages is set to **GitHub Actions** — the `deploy.yml` workflow
+   builds and publishes `dist/`.
+3. For the custom domain: add a DNS CNAME record for `dealwithit.gonzhome.us`
+   pointing to `mgonzalvez.github.io`, and keep `public/CNAME` in the repo.
+   That record is not in place yet, so the custom domain currently does not
+   resolve.
 
 ### Build modes
 
