@@ -15,7 +15,7 @@ export const TOUR_STEPS: TourStep[] = [
     title: 'Start in the Library',
     where: 'Library',
     body:
-      'Every game is a project. Press New project and give it a name — or press Start with demo deck to load 18 ready-made sample cards. Everything else happens inside your project.',
+      'Every game is a project. Press New project and give it a name — or, if you have nothing to upload yet, press Play a standard 52-card deck to load a real poker deck (A to K, four suits) already sitting on the felt. Everything else happens inside your project.',
   },
   {
     title: 'Import your card images',
@@ -27,13 +27,13 @@ export const TOUR_STEPS: TourStep[] = [
     title: 'Pair fronts with backs',
     where: 'Workshop › Cards',
     body:
-      'Click any card tile to flip between its front and back. Select all, then Apply back to selected to give every card the same back. Rotate 90° fixes sideways faces. Edit opens crop, size and rotation controls.',
+      'Click any card tile to flip between its front and back. Select cards, then press Choose a back for selected cards. Rotate 90° fixes sideways faces. Edit opens crop, size and rotation controls, and each card has its own Back button.',
   },
   {
-    title: 'Design your own card back',
+    title: 'Choose a card back',
     where: 'Workshop › Decks',
     body:
-      'Press Generate a back and follow the three steps: pick a style, pick a colour, type your game name. The back is drawn for you — no image needed, and it scales to any card size. “Surprise me” gives you a random one; Shuffle pattern keeps the colours and redraws the pattern. Apply to this deck gives every card in it that back. Individual cards can still use their own back image instead.',
+      'One button does it all: Choose a back. Generate a pattern (style → colour → game name), Use an image you already imported, or No back at all. Generated backs are drawn for you from a seed, so they look identical on every device and add nothing to your export size. Surprise me gives you a random one; Shuffle the pattern keeps the colours and redraws it. Apply to this deck gives every card in it that back — individual cards can still override it.',
   },
   {
     title: 'Assemble a deck',
@@ -45,7 +45,7 @@ export const TOUR_STEPS: TourStep[] = [
     title: 'Play on the table',
     where: 'Table',
     body:
-      'Your deck sits on the felt as a stack. Drag to peel the top card off — or hold a stack briefly, then drag to carry the whole deck. Double-tap to flip a card. The action bar shuffles, draws, deals, gathers and changes the felt. Pinch or scroll to zoom, drag empty felt to pan, and Ctrl/Cmd+Z to undo.',
+      'Your deck sits on the felt as a stack showing its real card back. Drag to peel the top card off — or hold a stack briefly, then drag to carry the whole deck. Double-tap to flip a card. The action bar shuffles (with a propeller riffle and a riffle sound), cuts, draws, deals, gathers and changes the felt. Snap makes cards line up with the grid when they are close to it; Sound plays the flip, riffle and deal. Pinch or scroll to zoom, drag empty felt to pan, and Ctrl/Cmd+Z to undo.',
   },
   {
     title: 'Save and share your project',

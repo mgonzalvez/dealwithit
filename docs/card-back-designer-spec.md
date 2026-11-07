@@ -56,10 +56,10 @@ No new IndexedDB table or index. The design is plain JSON, so it is tiny: it tra
 `resolveBack(card, deck)` is the single source of truth:
 
 ```
-card.backAssetId → card.backDesign → deck.defaultBackAssetId → deck.defaultBackDesign → neutral fallback
+card.backAssetId → card.backDesign → deck.defaultBackAssetId → deck.defaultBackDesign → generic back
 ```
 
-A card's own back always beats the deck default.
+A card's own back always beats the deck default. With neither, `drawNeutralBack()` renders a proper generic playing-card back (dark blue lattice, double frame, centre emblem) instead of a flat grey rectangle.
 
 ## 4. Rendering
 
@@ -80,10 +80,18 @@ drawGeneratedBack(ctx, design, width, height)   // draws base + shapes + frame
 
 ## 6. Tutorial
 
-A new tour step — **"Design your own card back"** — sits between "Pair fronts with backs" and "Assemble a deck", and QuickStart step 3 mentions generated backs. The demo deck ships with a generated diamond back so the feature is visible immediately.
+A new tour step — **"Design your own card back"** — sits between "Pair fronts with backs" and "Assemble a deck", and QuickStart step 3 mentions generated backs. The demo deck ships with a generated diamond back so the feature is visible immediately. QuickStart also offers **Play a standard 52-card deck** for visitors who have nothing to upload.
 
-## 7. Verification
+## 7. Backs on the Table
 
-- **86 unit tests** (10 files), including 12 new ones in `src/test/back-design.test.ts`: determinism, geometry bounds, mirrored titles, precedence, schema validation, deck duplication carrying the design.
-- Visual check: rendered all six styles in three colours through headless Chrome.
+A face-down stack shows **the back of the deck it came from**. `TableObject.sourceDeckId` identifies the deck, and rendered faces are cached per `card + face + deck` (previously the cache was keyed by card alone and used the first deck containing that card, which is why a cream back chosen in the Workshop could still appear green on the table).
+
+The tray shows a true thumbnail of each deck's back — generated pattern or uploaded image — with a plain-language label: "Classic diamonds back", "Image back", "Generic back".
+
+See `docs/table-realism-spec.md` for how cards shuffle, deal, snap and sound on the felt.
+
+## 8. Verification
+
+- **105 unit tests** (12 files), including 12 in `src/test/back-design.test.ts`: determinism, geometry bounds, mirrored titles, precedence, schema validation, deck duplication carrying the design.
+- Visual check: all six styles in three colours, the generic back and standard card art rendered through headless Chrome.
 - `npm run lint`, `npm run typecheck`, `npm test`, `npm run build` all pass.

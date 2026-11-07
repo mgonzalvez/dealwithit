@@ -105,11 +105,24 @@ GitHub Pages deep links never 404.
   `crypto.getRandomValues` (rejection sampling, unbiased).
 - **Milestones**: M0 scaffold, M1 image/ZIP import, M2 Workshop, M3 Table,
   M4 export/import, M5 PWA/offline, M6 Card Extractor bridge, M7 generated card
-  backs — all done. See `IMPLEMENTATION_STATUS.md`.
-- **Card backs can be generated, not just uploaded.** In the Decks tab, *Generate
-  a back* opens a three-step wizard (style → colour → game name) that draws a
-  playing-card style pattern. The design is stored as JSON and rendered from a
-  seeded PRNG, so it looks identical on every device and adds nothing to export size.
+  backs, M8 workflow clarity (one "Choose a back" picker + toggleable inline
+  tips), M9 table realism (felt, sounds, shuffle/deal animation, soft snapping,
+  cut), M10 built-in standard 52-card deck — all done. See
+  `IMPLEMENTATION_STATUS.md`.
+- **Card backs can be generated, not just uploaded.** Everywhere a back is set,
+  one button — **Choose a back** — opens a picker with three tabs: Generate a
+  pattern (style → colour → game name), Use an image you already imported, or No
+  back. Generated designs are stored as JSON and drawn from a seeded PRNG, so
+  they look identical on every device and add nothing to export size. A card's
+  own back beats the deck's back; with neither, cards show a proper generic back
+  (lattice, double frame, centre emblem) rather than a grey rectangle.
+- **The Table simulates a real table.** Deep felt surface with subtle fuzz, a
+  riffle sound and a propeller shuffle, a thwip when cards are dealt (they land
+  slightly crooked, ±2°), a snap when cards flip, and soft "magnetic" grid
+  snapping. See `docs/table-realism-spec.md`.
+- **You can play without uploading anything.** **Play a standard 52-card deck**
+  builds A–K in four suits with recognisable pip layouts and a classic back, then
+  puts the pack on the felt.
 - **Workshop is visual**: card tiles render actual card art (click to flip
   front/back, bulk back assignment), decks appear as fanned thumbnail stacks
   with quantity steppers, reorder, deck icons and deck-to-deck transfer.
@@ -119,6 +132,9 @@ GitHub Pages deep links never 404.
 
 - Table rendering starts as HTML/CSS transforms (simple, debuggable); PixiJS
   is only considered if benchmarks demand it.
+- Table sounds are synthesised with the Web Audio API rather than shipped as
+  audio files: smaller bundle, works offline, no licensing questions. If a real
+  recording is ever wanted, drop it in `public/sounds/` and swap the synth call.
 - SVG import is excluded in the MVP (rasterizing safely is non-trivial).
 - No speculative Card Extractor API: generic image/ZIP import ships first;
   the bridge waits for the real export contract.
@@ -146,6 +162,16 @@ state, with checksums). Importing that archive on any device restores the
 project exactly; IDs are remapped so the same archive can be imported
 devices repeatedly without collisions. Ordinary image ZIPs (including Card
 Extractor exports) still import through the Workshop.
+
+## Documentation
+
+| Document | What it covers |
+|---|---|
+| `Deal_With_It_Final_Codex_Build_Spec.md` | The original product spec (milestones, data model, constraints) |
+| `IMPLEMENTATION_STATUS.md` | Milestone-by-milestone status and verified gates |
+| `docs/card-back-designer-spec.md` | Generated card backs: the one "Choose a back" picker, data model, precedence, tutorial tips |
+| `docs/table-realism-spec.md` | Felt surfaces, synthesised sounds, propeller shuffle, deal jitter, soft grid snapping, cutting, the generic back, the built-in standard 52-card deck |
+| `to-do.md` | Open questions and the next realism tweaks |
 
 ## Artwork attribution
 
