@@ -59,12 +59,13 @@ Swoosh + landing thud per card, staggered 150 ms. Cards drop in with a 300 ms an
 
 - **Snap on/off** in the table toolbar, persisted (`tableSnap`).
 - A dragged card is pulled to the nearest grid line (pitch = **that card's own width/height**) **or** to a card already on the table — whichever is nearer.
-- Only snaps when within `min(20% of the card size, 20 units ≈ 10 mm)` — deliberately loose.
+- Only snaps when within `min(35% of the card size, 45 units ≈ 22 mm)` — magnetic enough that a card a third of the way off the line jumps onto it, loose enough that a deliberate placement stays put.
 - **Magnetic while dragging** (applies live, not just on release).
-- Rotation straightens to the nearest 90° when within 4°.
+- Anchors are the **centres and the edges** of the cards already on the table, so a card dropped beside another lines up edge-to-edge instead of drifting half a card away. Cards travelling with a group are not anchors.
+- Rotation straightens to the nearest 90° when within 6°.
 - Faint guide lines appear **only while a card is in your hand**, sized to that card.
 
-**Decisions:** card-size pitch · guide only during drag · looser tolerance (20%) · rotation straightening yes · magnetic while dragging.
+**Decisions:** card-size pitch · guide only during drag · tolerance raised from 20% to 35% (capped at 45 units) · edge anchors as well as centres · rotation straightening 6° · magnetic while dragging.
 
 ---
 
@@ -126,6 +127,31 @@ A one-click **"Play a standard 52-card deck"** in the Library creates a real pok
 **Decisions:** keep Sound and theme reachable in focus mode; hide Tips (there is nothing to coach). Not using the browser `requestFullscreen()` API — iPad Safari does not support it and focus mode already uses the whole viewport.
 
 **Later ideas:** an option to hide the slim header entirely; a bottom deck strip that floats over the felt; auto-focus when the viewport is tablet-sized.
+
+---
+
+## 12. Groups: select, arrange, pile, return — ✅
+
+You can now grab a **group of cards** and do something to all of them at once, with mouse or finger.
+
+**Selecting**
+- Tap/click a card to select it. **Shift+tap** adds or removes one.
+- **Select mode** (toolbar / focus Controls panel) makes every tap add to the group — the touch-friendly way — and turns a drag on empty felt into a rubber-band box.
+- **Shift + drag** on the felt rubber-bands a selection (desktop).
+- **Select all cards** button, and **Ctrl/Cmd+A**. Tap empty felt or press **Esc** to clear.
+
+**Group actions** (the bar that appears when two or more cards are selected)
+- **Gather into a pile** — `gatherGroup()`; if a stack is in the group, the others are absorbed into it.
+- **Arrange in a row** — `arrangeInRow()`, left-to-right, one card width + 14 units apart, at one height.
+- **Arrange in a grid** — `arrangeInGrid()`, roughly square (`ceil(sqrt(n))` columns), reading order preserved.
+- **Return to deck** — `returnGroupToDeck()`, cards go back to the stack they came from (or form a new one).
+- **Deselect**.
+
+**Group dragging:** grab any card in the group and the whole group moves with it, keeping the relative layout.
+
+**Stacks:** a selected stack now has **Deal into a row**, which deals up to 10 cards off the top and lays them out in a tidy row with the staggered deal sound.
+
+**Decisions:** selection is a set, not a single card · group actions are pure functions in `table-operations.ts` (unit tested) · rubber-band selection is opt-in on touch so it never fights panning.
 
 ---
 

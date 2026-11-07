@@ -22,16 +22,20 @@ import {
   TableState
 } from '../../domain/models';
 import {
+  arrangeInGrid,
+  arrangeInRow,
   bringToFront,
   cutStack,
   dealFromStack,
   drawFromStack,
   duplicateObject,
   flipTop,
+  gatherGroup,
   gatherInto,
   launchDeck,
   mergeStack,
   removeObject,
+  returnGroupToDeck,
   returnToDeck,
   rotateObject,
   sendToBack,
@@ -40,7 +44,7 @@ import {
 import { deckCardCount } from '../../domain/deck-operations';
 import { loadImage, renderCardPreview } from '../workshop/cardRenderer';
 import { playTableSound, setSoundMuted, type TableSound } from './sounds';
-import { softSnap, snapRotation, snapTolerance } from './snap';
+import { neighbourAnchors, softSnap, snapRotation, snapTolerance } from './snap';
 
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 3;
@@ -63,7 +67,7 @@ interface Snapshot {
 }
 
 interface DragState {
-  kind: 'object' | 'pan' | 'stack-draw';
+  kind: 'object' | 'pan' | 'stack-draw' | 'marquee';
   pointerId: number;
   id?: string;
   dx?: number;
@@ -72,6 +76,9 @@ interface DragState {
   startClientX: number;
   startClientY: number;
   startCamera?: { x: number; y: number; zoom: number };
+  startWorld?: { x: number; y: number };
+  /** Other selected cards that travel with the one being dragged. */
+  group?: string[];
 }
 
 interface MenuState {
@@ -99,7 +106,8 @@ export function TablePage({
   const [decks, setDecks] = useState<DeckDefinition[]>([]);
   const [cards, setCards] = useState<Map<string, CardDefinition>>(new Map());
   const [table, setTable] = useState<TableState | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selection, setSelection] = useState<string[]>([]);
+  const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [peek, setPeek] = useState<{ url: string; x: number; y: number } | null>(null);
   const [saveStatus, setSaveStatus] = useState('');
   const [trayOpen, setTrayOpen] = useState(true);
@@ -110,6 +118,7 @@ export function TablePage({
   const [grabbingId, setGrabbingId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [snapOn, setSnapOn] = useState(true);
+  const [selectMode, setSelectMode] = useState(false);
   const [animations, setAnimations] = useState<Map<string, string>>(new Map());
   const [deckThumbs, setDeckThumbs] = useState<Map<string, { url: string; label: string }>>(new Map());
 
@@ -124,6 +133,27 @@ export function TablePage({
   const futureRef = useRef<Snapshot[]>([]);
   const fittedRef = useRef(false);
   const edgeColorRef = useRef<Map<string, string>>(new Map());
+
+  /** The last card the player touched drives the single-object action bar. */
+  const selectedId = selection.length ? selection[selection.length - 1] : null;
+
+  function selectOnly(id: string) {
+    setSelection([id]);
+  }
+
+  function toggleSelection(id: string) {
+    setSelection(selection.includes(id) ? selection.filter((other) => other !== id) : [...selection, id]);
+  }
+
+  function clearSelection() {
+    setSelection([]);
+  }
+
+  function selectAllLooseCards() {
+    const current = tableRef.current;
+    if (!current) return;
+    setSelection(current.objects.filter((o) => o.type === 'card' && o.cardInstances.length > 0).map((o) => o.id));
+  }
 
   useEffect(() => {
     tableRef.current = table;
@@ -333,6 +363,10 @@ export function TablePage({
           setMenu(null);
           return;
         }
+        if (selection.length > 0) {
+          clearSelection();
+          return;
+        }
         if (panelOpen) {
           setPanelOpen(false);
           return;
@@ -343,6 +377,11 @@ export function TablePage({
       if (event.key === ' ') {
         spaceRef.current = true;
         event.preventDefault();
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
+        event.preventDefault();
+        selectAllLooseCards();
+        return;
       }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
         event.preventDefault();
@@ -359,7 +398,7 @@ export function TablePage({
       document.removeEventListener('keydown', onKeyDown);
       document.removeEventListener('keyup', onKeyUp);
     };
-  }, [focus, panelOpen, onToggleFocus]);
+  }, [focus, panelOpen, menu, selection, onToggleFocus]);
 
   function snapshot() {
     const current = tableRef.current;
@@ -502,6 +541,45 @@ export function TablePage({
   }
 
   /** Fit the camera to the cards on the table (or a comfortable default). */
+  /**
+   * After arranging a group, make sure it is actually on screen — the action
+   * bar lives along the bottom of the felt, so the group is framed above it.
+   */
+  function frameSelection(objects: TableObject[], ids: string[]) {
+    const canvas = canvasRef.current;
+    const current = tableRef.current;
+    if (!canvas || !current || ids.length < 2) return;
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const object of objects) {
+      if (!ids.includes(object.id)) continue;
+      const top = object.cardInstances[object.cardInstances.length - 1];
+      const { w, h } = cardSize(top ? cards.get(top.cardDefinitionId) : undefined);
+      minX = Math.min(minX, object.x - w / 2);
+      minY = Math.min(minY, object.y - h / 2);
+      maxX = Math.max(maxX, object.x + w / 2);
+      maxY = Math.max(maxY, object.y + h / 2);
+    }
+    if (!Number.isFinite(minX)) return;
+    const rect = canvas.getBoundingClientRect();
+    const barSpace = 130; // the action bar sits along the bottom of the canvas
+    const width = maxX - minX;
+    const height = maxY - minY;
+    const zoom = Math.max(
+      MIN_ZOOM,
+      Math.min(current.camera.zoom, (rect.width - 60) / width, (rect.height - barSpace - 40) / height)
+    );
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    animateCamera({
+      x: rect.width / 2 - centerX * zoom,
+      y: (rect.height - barSpace) / 2 - centerY * zoom,
+      zoom
+    });
+  }
+
   function fitView(animate = true) {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -616,7 +694,11 @@ export function TablePage({
     if (spaceRef.current) return; // Space = pan mode; let it fall through to the canvas.
     event.preventDefault();
     event.stopPropagation();
-    setSelectedId(object.id);
+    // Tap selects a card; Shift+tap (or any tap while Select mode is on) adds
+    // it to — or removes it from — the group. Tapping a card that is already in
+    // the group keeps the group together so you can drag the whole lot.
+    if (event.shiftKey || selectMode) toggleSelection(object.id);
+    else if (!selection.includes(object.id)) selectOnly(object.id);
     setDraggingId(object.id);
     sound('pickup');
     // Dragging a stack peels its top card (drag-to-draw). Hold Shift to slide
@@ -647,7 +729,10 @@ export function TablePage({
       dy: object.y - world.y,
       moved: false,
       startClientX: event.clientX,
-      startClientY: event.clientY
+      startClientY: event.clientY,
+      group: !peel && selection.length > 1 && selection.includes(object.id)
+        ? selection.filter((other) => other !== object.id)
+        : undefined
     };
     setMenu(null);
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
@@ -712,7 +797,7 @@ export function TablePage({
         updatedAt: Date.now()
       });
       setSaveStatus('Unsaved');
-      setSelectedId(drawn.id);
+      selectOnly(drawn.id);
       dragRef.current = {
         kind: 'object',
         pointerId: event.pointerId,
@@ -730,6 +815,7 @@ export function TablePage({
     const current = tableRef.current;
     if (!current) return;
     drag.moved = true;
+    const draggedOriginal = current.objects.find((o) => o.id === drag.id);
     // The felt has no edge, so cards can go anywhere; only a sanity limit stops
     // a stray drag from sending a card to the stratosphere.
     const rawX = clampWorld(world.x + (drag.dx ?? 0));
@@ -740,13 +826,41 @@ export function TablePage({
       const dragged = current.objects.find((o) => o.id === drag.id);
       const topCard = dragged ? cards.get(dragged.cardInstances[dragged.cardInstances.length - 1]?.cardDefinitionId) : undefined;
       const size = cardSize(topCard);
-      const others = current.objects.filter((o) => o.id !== drag.id);
-      x = softSnap(x, size.w, snapTolerance(size.w), others.map((o) => o.x));
-      y = softSnap(y, size.h, snapTolerance(size.h), others.map((o) => o.y));
+      const tolerance = snapTolerance(size.w);
+      // Neighbour cards are anchors too: their centres and their edges, so a
+      // card dropped next to another lines up with it, not just with the grid.
+      const anchorsFor = (axis: 'x' | 'y') =>
+        neighbourAnchors(
+          current.objects
+            // Cards travelling with the group are not anchors: they move with
+            // the one in your hand, so anchoring to them would pin the group
+            // to where it already is.
+            .filter((o) => o.id !== drag.id && !(drag.group ?? []).includes(o.id))
+            .map((o) => {
+              const otherSize = sizeOf(o);
+              return {
+                centre: axis === 'x' ? o.x : o.y,
+                span: axis === 'x' ? otherSize.w : otherSize.h
+              };
+            })
+        );
+      x = softSnap(x, size.w, tolerance, anchorsFor('x'));
+      y = softSnap(y, size.h, tolerance, anchorsFor('y'));
     }
+
+    // A group of selected cards travels together.
+    const group = drag.group ?? [];
+    const dx = draggedOriginal ? x - draggedOriginal.x : 0;
+    const dy = draggedOriginal ? y - draggedOriginal.y : 0;
     setTable({
       ...current,
-      objects: current.objects.map((o) => (o.id === drag.id ? { ...o, x, y } : o))
+      objects: current.objects.map((o) => {
+        if (o.id === drag.id) return { ...o, x, y };
+        if (group.includes(o.id)) {
+          return { ...o, x: clampWorld(o.x + dx), y: clampWorld(o.y + dy) };
+        }
+        return o;
+      })
     });
   }
 
@@ -771,7 +885,10 @@ export function TablePage({
 
       // Squaring up: a card within a few degrees of square straightens itself.
       if (snapOn && dragged) {
-        objects = objects.map((o) => (o.id === drag.id ? { ...o, rotationDeg: snapRotation(o.rotationDeg) } : o));
+        const group = drag.group ?? [];
+        objects = objects.map((o) =>
+          o.id === drag.id || group.includes(o.id) ? { ...o, rotationDeg: snapRotation(o.rotationDeg) } : o
+        );
         changed = objects.some((o, index) => o.rotationDeg !== current.objects[index].rotationDeg);
       }
 
@@ -807,12 +924,36 @@ export function TablePage({
     if (event.button !== 0) return;
     if (menu) setMenu(null);
     if (dragRef.current) return;
+    // Shift + drag on empty felt = rubber-band selection. On touch devices the
+    // same thing is done with the Select mode toggle.
+    if (event.shiftKey || selectMode) {
+      const world = worldPoint(event.clientX, event.clientY);
+      dragRef.current = {
+        kind: 'marquee',
+        pointerId: event.pointerId,
+        moved: false,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        startWorld: world
+      };
+      setMarquee({ x: world.x, y: world.y, w: 0, h: 0 });
+      (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+      return;
+    }
     startPan(event);
   }
 
   function handleCanvasPointerMove(event: React.PointerEvent) {
     const drag = dragRef.current;
-    if (!drag || drag.kind !== 'pan' || drag.pointerId !== event.pointerId) return;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (drag.kind === 'marquee') {
+      const world = worldPoint(event.clientX, event.clientY);
+      const origin = drag.startWorld ?? world;
+      drag.moved = true;
+      setMarquee({ x: origin.x, y: origin.y, w: world.x - origin.x, h: world.y - origin.y });
+      return;
+    }
+    if (drag.kind !== 'pan') return;
     setCamera({
       x: drag.startCamera!.x + (event.clientX - drag.startClientX),
       y: drag.startCamera!.y + (event.clientY - drag.startClientY),
@@ -821,10 +962,16 @@ export function TablePage({
   }
 
   function handleCanvasPointerUp(event: React.PointerEvent) {
-    if (dragRef.current?.pointerId === event.pointerId) {
-      dragRef.current = null;
-      setDraggingId(null);
+    const drag = dragRef.current;
+    if (drag?.pointerId !== event.pointerId) return;
+    if (drag.kind === 'marquee') {
+      finishMarquee();
+    } else if (drag.kind === 'pan' && !drag.moved) {
+      // A click on empty felt clears the group.
+      clearSelection();
     }
+    dragRef.current = null;
+    setDraggingId(null);
   }
 
   function launch(deck: DeckDefinition) {
@@ -869,7 +1016,7 @@ export function TablePage({
 
   function openContextMenu(event: React.MouseEvent, object: TableObject) {
     event.preventDefault();
-    setSelectedId(object.id);
+    selectOnly(object.id);
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
@@ -956,6 +1103,77 @@ export function TablePage({
     sound('gather');
   }
 
+  /** Rubber-band selection: everything the marquee box touched. */
+  function finishMarquee() {
+    setMarquee(null);
+    const rect = marquee;
+    if (!rect || (Math.abs(rect.w) < 12 && Math.abs(rect.h) < 12)) return;
+    const current = tableRef.current;
+    if (!current) return;
+    const left = Math.min(rect.x, rect.x + rect.w);
+    const right = Math.max(rect.x, rect.x + rect.w);
+    const top = Math.min(rect.y, rect.y + rect.h);
+    const bottom = Math.max(rect.y, rect.y + rect.h);
+    const ids = current.objects.filter((object) => {
+      const size = cardSize(cards.get(object.cardInstances[object.cardInstances.length - 1]?.cardDefinitionId));
+      return (
+        object.x + size.w / 2 >= left &&
+        object.x - size.w / 2 <= right &&
+        object.y + size.h / 2 >= top &&
+        object.y - size.h / 2 <= bottom
+      );
+    }).map((object) => object.id);
+    if (ids.length) setSelection(ids);
+  }
+
+  function sizeOf(object: TableObject): { w: number; h: number } {
+    return cardSize(cards.get(object.cardInstances[object.cardInstances.length - 1]?.cardDefinitionId));
+  }
+
+  function gatherSelection() {
+    const current = tableRef.current;
+    if (!current || selection.length < 2) return;
+    const ids = selection;
+    mutate(gatherGroup(current.objects, ids));
+    sound('gather');
+    clearSelection();
+    // The new pile lands inside the footprint of the cards that made it.
+    frameSelection(current.objects, ids);
+  }
+
+  function arrangeSelection(mode: 'row' | 'grid') {
+    const current = tableRef.current;
+    if (!current || selection.length < 2) return;
+    const objects = mode === 'row' ? arrangeInRow(current.objects, selection, sizeOf) : arrangeInGrid(current.objects, selection, sizeOf);
+    mutate(objects);
+    sound('place');
+    frameSelection(objects, selection);
+  }
+
+  function returnSelectionToDeck() {
+    const current = tableRef.current;
+    if (!current || selection.length === 0) return;
+    mutate(returnGroupToDeck(current.objects, selection));
+    sound('place');
+    clearSelection();
+  }
+
+  /** Deal cards off a stack and lay them out in a tidy row. */
+  function dealIntoRow() {
+    const object = selectedObject();
+    const current = tableRef.current;
+    if (!object || !current || object.type !== 'stack' || object.cardInstances.length === 0) return;
+    const count = Math.min(10, object.cardInstances.length);
+    const after = dealFromStack(object, current.objects, count, { faceUp: drawFaceUp });
+    const dealtIds = after
+      .filter((o) => o.type === 'card' && !current.objects.some((existing) => existing.id === o.id))
+      .map((o) => o.id);
+    mutate(arrangeInRow(after, dealtIds, sizeOf));
+    setSelection(dealtIds);
+    frameSelection(after, dealtIds);
+    dealtIds.forEach((_, index) => setTimeout(() => sound('deal'), index * 150));
+  }
+
   function rotateSelected() {
     const object = selectedObject();
     const current = tableRef.current;
@@ -982,7 +1200,7 @@ export function TablePage({
     const current = tableRef.current;
     if (!current || !selectedId) return;
     mutate(removeObject(current.objects, selectedId));
-    setSelectedId(null);
+    clearSelection();
   }
 
   function resetTable() {
@@ -1037,6 +1255,9 @@ export function TablePage({
         <button type="button" className="btn btn-secondary" onClick={redo}>
           Redo
         </button>
+        <button type="button" className="btn btn-secondary" onClick={selectAllLooseCards}>
+          Select all cards
+        </button>
         <label className="bg-picker">
           Draw
           <select value={drawFaceUp ? 'up' : 'down'} onChange={(e) => changeDrawFaceUp(e.target.value)}>
@@ -1069,6 +1290,15 @@ export function TablePage({
         >
           Snap {snapOn ? 'on' : 'off'}
         </button>
+        <button
+          type="button"
+          className="tips-toggle"
+          aria-pressed={selectMode}
+          onClick={() => setSelectMode((on) => !on)}
+          title="Drag across the felt to rubber-band a group of cards"
+        >
+          Select mode {selectMode ? 'on' : 'off'}
+        </button>
         <button type="button" className="btn btn-secondary" onClick={resetTable}>
           Clear table
         </button>
@@ -1077,7 +1307,7 @@ export function TablePage({
 
       <div className="table-toolbar-notes">
         <Coach
-          text="Sound plays the riffle when you shuffle, the snap when a card flips and the thwip when cards are dealt. Snap makes a card line up with the grid — or with a card it is already near — but only if it is already close."
+          text="Tap cards to build a group (Shift+tap adds or removes one), or Shift-drag across the felt to rubber-band a whole group — with Select mode on, that works with a finger. Then gather them into a pile, arrange them in a row or grid, or send them back to the deck. Snap is magnetic: within about a third of a card, the card jumps onto the line or lines up with the card next to it."
         />
       </div>
 
@@ -1152,7 +1382,7 @@ export function TablePage({
               return (
                 <div
                   key={object.id}
-                  className={`table-object ${object.id === selectedId ? 'selected' : ''} ${isStack ? 'stack' : ''} ${object.id === grabbingId ? 'grabbing' : ''} ${animation ? `anim-${animation}` : ''}`}
+                  className={`table-object ${selection.includes(object.id) ? 'selected' : ''} ${isStack ? 'stack' : ''} ${object.id === grabbingId ? 'grabbing' : ''} ${animation ? `anim-${animation}` : ''}`}
                   style={{
                     left: object.x - w / 2,
                     top: object.y - h / 2,
@@ -1167,7 +1397,7 @@ export function TablePage({
                   onPointerMove={handleObjectPointerMove}
                   onPointerUp={handleObjectPointerUp}
                   onDoubleClick={() => {
-                    setSelectedId(object.id);
+                    selectOnly(object.id);
                     const current = tableRef.current;
                     if (current) {
                       mutate(current.objects.map((o) => (o.id === object.id ? flipTop(o) : o)));
@@ -1198,6 +1428,19 @@ export function TablePage({
                 </div>
               );
             })}
+
+            {marquee && (
+              <div
+                className="marquee"
+                aria-hidden="true"
+                style={{
+                  left: Math.min(marquee.x, marquee.x + marquee.w),
+                  top: Math.min(marquee.y, marquee.y + marquee.h),
+                  width: Math.abs(marquee.w),
+                  height: Math.abs(marquee.h)
+                }}
+              />
+            )}
 
             {peek && (
               <div className="peek-overlay" style={{ left: peek.x - 127, top: peek.y - 178 }}>
@@ -1238,6 +1481,7 @@ export function TablePage({
               <div className="focus-panel-row">
                 <button type="button" className="btn btn-secondary" onClick={undo}>Undo</button>
                 <button type="button" className="btn btn-secondary" onClick={redo}>Redo</button>
+                <button type="button" className="btn btn-secondary" onClick={selectAllLooseCards}>Select all</button>
                 <label className="bg-picker">
                   Draw
                   <select value={drawFaceUp ? 'up' : 'down'} onChange={(e) => changeDrawFaceUp(e.target.value)}>
@@ -1268,6 +1512,14 @@ export function TablePage({
                   }}
                 >
                   Snap {snapOn ? 'on' : 'off'}
+                </button>
+                <button
+                  type="button"
+                  className="tips-toggle"
+                  aria-pressed={selectMode}
+                  onClick={() => setSelectMode((on) => !on)}
+                >
+                  Select mode {selectMode ? 'on' : 'off'}
                 </button>
                 <button type="button" className="btn btn-secondary" onClick={resetTable}>
                   Clear table
@@ -1351,7 +1603,7 @@ export function TablePage({
                       ) : null}
                     </>
                   )}
-                  <button type="button" role="menuitem" className="danger" onClick={() => { applyTo(menu.id, (objects) => removeObject(objects, menu.id)); setSelectedId(null); }}>
+                  <button type="button" role="menuitem" className="danger" onClick={() => { applyTo(menu.id, (objects) => removeObject(objects, menu.id)); clearSelection(); }}>
                     Delete
                   </button>
                 </div>
@@ -1360,7 +1612,28 @@ export function TablePage({
             );
           })()}
 
-          {selected && (
+          {selection.length > 1 && (
+            <div className="action-bar group-bar" role="group" aria-label="Group actions">
+              <span className="group-count">{selection.length} cards selected</span>
+              <button type="button" className="btn btn-primary" onClick={gatherSelection}>
+                Gather into a pile
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={() => arrangeSelection('row')}>
+                Arrange in a row
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={() => arrangeSelection('grid')}>
+                Arrange in a grid
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={returnSelectionToDeck}>
+                Return to deck
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={clearSelection}>
+                Deselect
+              </button>
+            </div>
+          )}
+
+          {selected && selection.length <= 1 && (
             <div className="action-bar" role="group" aria-label="Card actions">
               <button type="button" className="btn btn-secondary" onClick={flipSelected}>
                 Flip
@@ -1411,6 +1684,9 @@ export function TablePage({
                   <button type="button" className="btn btn-secondary" onClick={gatherSelected}>
                     Gather
                   </button>
+                  <button type="button" className="btn btn-secondary" onClick={dealIntoRow}>
+                    Deal into a row
+                  </button>
                   <button type="button" className="btn btn-secondary" onClick={() => peekTop(selected)}>
                     Peek top
                   </button>
@@ -1423,7 +1699,7 @@ export function TablePage({
               <button type="button" className="btn btn-danger" onClick={deleteSelected}>
                 Delete
               </button>
-              <button type="button" className="btn btn-secondary" onClick={() => setSelectedId(null)}>
+              <button type="button" className="btn btn-secondary" onClick={() => clearSelection()}>
                 Close
               </button>
             </div>

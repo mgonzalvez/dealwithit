@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
+  arrangeInGrid,
+  arrangeInRow,
   bringToFront,
   cutStack,
   dealFromStack,
@@ -7,12 +9,14 @@ import {
   duplicateObject,
   flipInstance,
   flipTop,
+  gatherGroup,
   gatherInto,
   launchDeck,
   mergeStack,
   moveObject,
   normalizeRotation,
   removeObject,
+  returnGroupToDeck,
   returnToDeck,
   rotateObject,
   sendToBack,
@@ -271,5 +275,94 @@ describe('cutting a deck', () => {
     for (const object of objects.filter((o) => o.type === 'card')) {
       expect(Math.abs(object.rotationDeg)).toBeLessThanOrEqual(2);
     }
+  });
+});
+
+function looseCard(id: string, x: number, y: number): TableObject {
+  return {
+    id,
+    type: 'card',
+    x,
+    y,
+    z: 0,
+    rotationDeg: 0,
+    sourceDeckId: 'deck-1',
+    cardInstances: [{ instanceId: `${id}-inst`, cardDefinitionId: 'card-a', face: 'front', rotationDeg: 0 }]
+  };
+}
+
+const poker = () => ({ w: 127, h: 178 });
+
+describe('group operations', () => {
+  it('arranges selected cards into a left-to-right row at one height', () => {
+    const objects = [
+      { ...stack(20) },
+      looseCard('a', 400, 120),
+      looseCard('b', 200, 300),
+      looseCard('c', 700, 90)
+    ];
+    const result = arrangeInRow(objects, ['a', 'b', 'c'], poker);
+    const row = result.filter((o) => o.type === 'card');
+    const ys = new Set(row.map((o) => Math.round(o.y)));
+    expect(ys.size).toBe(1);
+    const xs = row.map((o) => o.x).sort((a, b) => a - b);
+    // Consecutive cards are one card width plus the gap apart.
+    expect(xs[1] - xs[0]).toBe(127 + 14);
+    expect(xs[2] - xs[1]).toBe(127 + 14);
+    // Untouched cards are untouched.
+    expect(result.find((o) => o.id === 'stack-1')!.cardInstances.length).toBe(20);
+  });
+
+  it('arranges selected cards into a rough grid', () => {
+    const objects = ['a', 'b', 'c', 'd', 'e', 'f'].map((id, i) => looseCard(id, 200 + i * 20, 200 + i * 20));
+    const result = arrangeInGrid(objects, ['a', 'b', 'c', 'd', 'e', 'f'], poker);
+    const cells = new Set(result.map((o) => `${Math.round(o.x)},${Math.round(o.y)}`));
+    expect(cells.size).toBe(6);
+    const xs = [...new Set(result.map((o) => Math.round(o.x)))].sort((a, b) => a - b);
+    expect(xs.length).toBe(3); // ceil(sqrt(6)) = 3 columns
+  });
+
+  it('leaves a lone card alone when arranging', () => {
+    const objects = [looseCard('a', 111, 222)];
+    expect(arrangeInRow(objects, ['a'], poker)).toEqual(objects);
+    expect(arrangeInGrid(objects, ['a'], poker)).toEqual(objects);
+  });
+
+  it('gathers loose cards into one pile where they roughly are', () => {
+    const objects = [looseCard('a', 100, 100), looseCard('b', 300, 120), looseCard('c', 500, 110)];
+    const result = gatherGroup(objects, ['a', 'b', 'c']);
+    expect(result.length).toBe(1);
+    const pile = result[0];
+    expect(pile.type).toBe('stack');
+    expect(pile.cardInstances.length).toBe(3);
+    expect(Math.round(pile.x)).toBe(300);
+    expect(pile.label).toBe('Gathered cards');
+    expect(pile.sourceDeckId).toBe('deck-1');
+  });
+
+  it('absorbs loose cards into a stack already in the selection', () => {
+    const objects = [{ ...stack(10) }, looseCard('a', 260, 100)];
+    const result = gatherGroup(objects, ['stack-1', 'a']);
+    expect(result.length).toBe(1);
+    expect(result[0].id).toBe('stack-1');
+    expect(result[0].cardInstances.length).toBe(11);
+  });
+
+  it('returns a group of cards to its source deck', () => {
+    const objects = [{ ...stack(20) }, looseCard('a', 300, 100), looseCard('b', 450, 100)];
+    const result = returnGroupToDeck(objects, ['a', 'b']);
+    expect(result.length).toBe(1);
+    expect(result[0].type).toBe('stack');
+    expect(result[0].cardInstances.length).toBe(22);
+  });
+
+  it('creates a new pile when the selected cards have no deck to return to', () => {
+    const objects: TableObject[] = [
+      { id: 'a', type: 'card', x: 200, y: 200, z: 0, rotationDeg: 0, cardInstances: [{ instanceId: 'ai', cardDefinitionId: 'card-a', face: 'front', rotationDeg: 0 }] },
+      { id: 'b', type: 'card', x: 320, y: 200, z: 0, rotationDeg: 0, cardInstances: [{ instanceId: 'bi', cardDefinitionId: 'card-b', face: 'front', rotationDeg: 0 }] }
+    ];
+    const result = returnGroupToDeck(objects, ['a', 'b']);
+    expect(result.length).toBe(1);
+    expect(result[0].cardInstances.length).toBe(2);
   });
 });

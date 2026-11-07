@@ -336,3 +336,32 @@ body.table-focus .table-canvas {
 .tray-deck-back {
   font-size: 12px;
 }
+
+/* ===== Group selection ===== */
+
+/* The rubber-band box you drag across the felt with Shift. */
+.marquee {
+  position: absolute;
+  border: 1.5px dashed rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 6;
+}
+
+.group-bar {
+  align-items: center;
+}
+
+.group-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  padding-right: 4px;
+}
+
+/* Cards in a group are marked so it is obvious what will travel together. */
+.table-object.selected {
+  outline: 2px solid rgba(255, 255, 255, 0.55);
+  outline-offset: 3px;
+}

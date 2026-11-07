@@ -92,8 +92,9 @@ Card Extractor lives at `https://extractor.gonzhome.us` (tools index: `https://g
 - **Transactional persistence:** canceled imports leave no orphaned definitions/entries
 - **Table defaults:** launched deck = one stack, backs visible (the deck's own back — generated or image), count badge above the pile; a proper generic back if none was chosen; default surface deep felt green `#15372a`
 - **No table edges:** the felt is the viewport, not a 1600×1000 board. `TABLE_WIDTH`/`TABLE_HEIGHT` are only the default starting area; positions are clamped to `WORLD_LIMIT` (±6000) via `clampWorld()`. Never reintroduce clamping to the board rectangle.
-- **Focus mode:** the header's **Focus table** button hides the toolbar, tips and tray and lets the felt fill the viewport; Undo/Redo/Draw/Surface/Snap/Clear/Library/Workshop/Launch live in the floating Controls panel. Esc exits. Persisted as `tableFocus`.
-- **Table feel:** sounds are synthesised with the Web Audio API (`src/features/table/sounds.ts`) — never audio files; shuffle uses the 500 ms opposing-propeller animation; snapping is soft (`src/features/table/snap.ts`, tolerance `min(20% of card, 20 units)`) and only shows guide lines while a card is being dragged
+- **Focus mode:** the header's **Focus table** button hides the toolbar, tips and tray and lets the felt fill the viewport; Undo/Redo/Draw/Surface/Select mode/Clear/Library/Workshop/Launch live in the floating Controls panel. Esc exits. Persisted as `tableFocus`.
+- **Selection is a set**, not a single card: `selection: string[]` in `TablePage.tsx` with `selectedId` derived as the last item. Group operations are pure functions in `src/domain/table-operations.ts` (`gatherGroup`, `arrangeInRow`, `arrangeInGrid`, `returnGroupToDeck`) and take a `sizeOf` callback so spacing works for any card size. Rubber-band selection is `event.shiftKey` on desktop or the **Select mode** toggle (touch).
+- **Table feel:** sounds are synthesised with the Web Audio API (`src/features/table/sounds.ts`) — never audio files; shuffle uses the 500 ms opposing-propeller animation; snapping is soft (`src/features/table/snap.ts`, tolerance `min(35% of card, 45 units)`, anchors are neighbouring card centres **and edges**, group members excluded), and guide lines only show while a card is being dragged
 
 ## Non-goals (do NOT build)
 

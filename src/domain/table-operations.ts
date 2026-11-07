@@ -257,3 +257,111 @@ export function cutStack(stack: TableObject, objects: TableObject[], fraction = 
   });
   return result;
 }
+
+/**
+ * Group operations. `sizeOf` gives the physical size of an object so spacing
+ * works for bridge cards, poker cards, minis — whatever the player is using.
+ */
+export type SizeOf = (object: TableObject) => { w: number; h: number };
+
+function byReadingOrder(objects: TableObject[]): TableObject[] {
+  return [...objects].sort((a, b) => a.y - b.y || a.x - b.x);
+}
+
+/** Lay the selected cards out in a neat left-to-right row. */
+export function arrangeInRow(
+  objects: TableObject[],
+  ids: string[],
+  sizeOf: SizeOf,
+  gap = 14
+): TableObject[] {
+  const selected = byReadingOrder(objects.filter((o) => ids.includes(o.id)));
+  if (selected.length < 2) return objects;
+  const placed = new Map<string, { x: number; y: number }>();
+  let cursor = selected[0].x;
+  const rowY = selected.reduce((sum, o) => sum + o.y, 0) / selected.length;
+  for (const object of selected) {
+    placed.set(object.id, { x: cursor, y: rowY });
+    cursor += sizeOf(object).w + gap;
+  }
+  return objects.map((o) => (placed.has(o.id) ? { ...o, x: placed.get(o.id)!.x, y: placed.get(o.id)!.y } : o));
+}
+
+/** Lay the selected cards out in a grid, roughly square, reading order preserved. */
+export function arrangeInGrid(
+  objects: TableObject[],
+  ids: string[],
+  sizeOf: SizeOf,
+  gap = 14
+): TableObject[] {
+  const selected = byReadingOrder(objects.filter((o) => ids.includes(o.id)));
+  if (selected.length < 2) return objects;
+  const columns = Math.max(1, Math.ceil(Math.sqrt(selected.length)));
+  const cellW = Math.max(...selected.map((o) => sizeOf(o).w)) + gap;
+  const cellH = Math.max(...selected.map((o) => sizeOf(o).h)) + gap;
+  const startX = selected[0].x;
+  const startY = selected[0].y;
+  const placed = new Map<string, { x: number; y: number }>();
+  selected.forEach((object, index) => {
+    placed.set(object.id, {
+      x: startX + (index % columns) * cellW,
+      y: startY + Math.floor(index / columns) * cellH
+    });
+  });
+  return objects.map((o) => (placed.has(o.id) ? { ...o, x: placed.get(o.id)!.x, y: placed.get(o.id)!.y } : o));
+}
+
+/**
+ * Gather the selection into one pile. If a stack is part of the selection the
+ * other cards are absorbed into it; otherwise a new stack is built where the
+ * group roughly is.
+ */
+export function gatherGroup(objects: TableObject[], ids: string[]): TableObject[] {
+  const selected = objects.filter((o) => ids.includes(o.id));
+  if (selected.length < 2) return objects;
+
+  const target = selected.find((o) => o.type === 'stack' && o.cardInstances.length > 0);
+  if (target) {
+    const absorbedIds = selected.filter((o) => o.id !== target.id).map((o) => o.id);
+    if (absorbedIds.length === 0) return objects;
+    const absorbed = selected
+      .filter((o) => absorbedIds.includes(o.id))
+      .flatMap((o) => o.cardInstances);
+    return objects
+      .filter((o) => !absorbedIds.includes(o.id))
+      .map((o) => (o.id === target.id ? { ...o, cardInstances: [...o.cardInstances, ...absorbed] } : o));
+  }
+
+  const loose = selected.filter((o) => o.cardInstances.length > 0);
+  if (loose.length < 2) return objects;
+  const instances = loose.flatMap((o) => o.cardInstances);
+  const x = loose.reduce((sum, o) => sum + o.x, 0) / loose.length;
+  const y = loose.reduce((sum, o) => sum + o.y, 0) / loose.length;
+  const z = Math.max(...selected.map((o) => o.z), 0);
+  const sourceDeckId = loose.find((o) => o.sourceDeckId)?.sourceDeckId;
+  return [
+    ...objects.filter((o) => !loose.some((l) => l.id === o.id)),
+    {
+      id: crypto.randomUUID(),
+      type: 'stack',
+      x: clampWorld(x),
+      y: clampWorld(y),
+      z,
+      rotationDeg: 0,
+      cardInstances: instances,
+      label: 'Gathered cards',
+      sourceDeckId
+    }
+  ];
+}
+
+/** Return every selected card to its source deck (creating one if needed). */
+export function returnGroupToDeck(objects: TableObject[], ids: string[]): TableObject[] {
+  let result = [...objects];
+  for (const id of ids) {
+    const object = result.find((o) => o.id === id);
+    if (!object) continue;
+    result = returnToDeck(result, object);
+  }
+  return result;
+}

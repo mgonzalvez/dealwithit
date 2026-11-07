@@ -216,6 +216,175 @@ try {
     console.log('  skip  set-down sound (no free card to grab in view)');
   }
 
+  // Deal a handful of cards off the deck so there is something to select.
+  const deckPoint = await page.evaluate(() => {
+    const el = document.querySelector('.table-object.stack');
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    const point = { x: r.left + r.width / 2, y: r.top + r.height * 0.2 };
+    const hit = document.elementFromPoint(point.x, point.y);
+    return hit && el.contains(hit) ? point : null;
+  });
+  if (deckPoint) {
+    await page.mouse.click(deckPoint.x, deckPoint.y);
+    await page.waitForTimeout(300);
+    await page.locator('.action-bar button:has-text("Draw 3")').click();
+    await page.waitForTimeout(600);
+  }
+
+  // Group selection: select the loose cards, lay them out, drag them as a set,
+  // gather them, then rubber-band a selection with the mouse.
+  await page.locator('.table-toolbar button:has-text("Select all cards")').click();
+  await page.waitForTimeout(300);
+  const group = await page.evaluate(() => ({
+    selected: document.querySelectorAll('.table-object.selected').length,
+    bar: document.querySelector('.group-bar')?.textContent?.trim() ?? ''
+  }));
+  check('Select all cards picks up every loose card', group.selected >= 4 && /cards selected/.test(group.bar), `${group.selected} selected — ${group.bar}`);
+
+  await page.locator('.group-bar button:has-text("Arrange in a row")').click();
+  await page.waitForTimeout(400);
+  const rowTidy = await page.evaluate(() => {
+    const tops = Array.from(document.querySelectorAll('.table-object.selected')).map((el) => parseFloat(el.style.top));
+    return tops.length >= 2 && Math.max(...tops) - Math.min(...tops) < 1;
+  });
+  check('Arrange in a row lines the cards up at the same height', rowTidy);
+
+  // Dragging one card of the group carries the rest with it.
+  const groupPositions = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('.table-object.selected')).map((el) => `${el.style.left},${el.style.top}`)
+  );
+  const pair = await page.evaluate(() => {
+    const els = Array.from(document.querySelectorAll('.table-object.selected'));
+    for (const el of els) {
+      const r = el.getBoundingClientRect();
+      const point = { x: r.left + r.width / 2, y: r.top + r.height * 0.25 };
+      const hit = document.elementFromPoint(point.x, point.y);
+      if (hit && el.contains(hit)) return { a: point };
+    }
+    return null;
+  });
+  if (pair) {
+    await page.mouse.move(pair.a.x, pair.a.y);
+    await page.mouse.down();
+    await page.mouse.move(pair.a.x + 120, pair.a.y + 60, { steps: 12 });
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+    const moved = await page.evaluate((original) => {
+      const now = Array.from(document.querySelectorAll('.table-object.selected')).map((el) => `${el.style.left},${el.style.top}`);
+      return now.filter((position, index) => index < original.length && position !== original[index]).length;
+    }, groupPositions);
+    check('dragging one card of a group moves the whole group', moved >= Math.min(groupPositions.length, 2), `${moved} of ${groupPositions.length} cards moved`);
+  }
+
+  const objectsBefore = await objectCount();
+  await page.locator('.group-bar button:has-text("Gather into a pile")').click();
+  await page.waitForTimeout(400);
+  const pile = await page.evaluate((count) => ({
+    objects: document.querySelectorAll('.table-object').length,
+    badges: Array.from(document.querySelectorAll('.table-object.stack .count-badge')).map((b) => Number(b.textContent))
+  }), group.selected);
+  check(
+    'Gather into a pile stacks the selected cards',
+    pile.objects === objectsBefore - group.selected + 1 && pile.badges.includes(group.selected),
+    `${objectsBefore} -> ${pile.objects} objects, badges ${pile.badges.join('/')}`
+  );
+
+  // Deal again, arrange in a grid, and send the group back to the deck.
+  const reDealPoint = await page.evaluate(() => {
+    const el = document.querySelector('.table-object.stack');
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    const point = { x: r.left + r.width / 2, y: r.top + r.height * 0.2 };
+    const hit = document.elementFromPoint(point.x, point.y);
+    return hit && el.contains(hit) ? point : null;
+  });
+  if (reDealPoint) {
+    await page.mouse.click(reDealPoint.x, reDealPoint.y);
+    await page.waitForTimeout(300);
+    await page.locator('.action-bar button:has-text("Draw 3")').click();
+    await page.waitForTimeout(500);
+    await page.locator('.table-toolbar button:has-text("Select all cards")').click();
+    await page.waitForTimeout(300);
+    await page.locator('.group-bar button:has-text("Arrange in a grid")').click();
+    await page.waitForTimeout(400);
+    const grid = await page.evaluate(() => {
+      const cells = new Set(Array.from(document.querySelectorAll('.table-object.selected')).map((el) => `${Math.round(parseFloat(el.style.left))},${Math.round(parseFloat(el.style.top))}`));
+      return cells.size;
+    });
+    check('Arrange in a grid gives every selected card its own cell', grid >= 3, `${grid} cells`);
+
+    await page.locator('.group-bar button:has-text("Return to deck")').click();
+    await page.waitForTimeout(400);
+    const back = await page.evaluate(() => ({
+      loose: document.querySelectorAll('.table-object:not(.stack)').length,
+      total: Array.from(document.querySelectorAll('.table-object.stack .count-badge')).reduce((sum, b) => sum + Number(b.textContent), 0)
+    }));
+    check('Return to deck puts the selected cards back in a pile', back.loose === 0 && back.total === 52, `${back.total} cards in piles, ${back.loose} loose`);
+  }
+
+  // Rubber-band selection: Shift + drag across the felt.
+  const marqueeBox = await page.evaluate(() => {
+    const rect = document.querySelector('.table-object.stack').getBoundingClientRect();
+    return { x: rect.left - 30, y: rect.top - 30, right: rect.right + 30, bottom: rect.bottom + 30 };
+  });
+  await page.mouse.move(marqueeBox.x, marqueeBox.y);
+  await page.keyboard.down('Shift');
+  await page.mouse.down();
+  await page.mouse.move(marqueeBox.right, marqueeBox.bottom, { steps: 20 });
+  await page.mouse.up();
+  await page.keyboard.up('Shift');
+  await page.waitForTimeout(300);
+  const marquee = await page.evaluate(() => document.querySelectorAll('.table-object.selected').length);
+  check('Shift + drag on the felt rubber-bands a selection', marquee >= 1, `${marquee} selected`);
+
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(250);
+  const cleared = await page.evaluate(() => document.querySelectorAll('.table-object.selected').length);
+  check('Escape clears the selection', cleared === 0);
+
+
+  // Select mode is the touch-friendly way to build a group: tap the cards you
+  // want, then act on them.
+  await page.locator('.table-toolbar button:has-text("Select mode")').click();
+  await page.waitForTimeout(200);
+  const tapTargets = await page.evaluate(() => {
+    const points = [];
+    for (const el of document.querySelectorAll('.table-object:not(.selected)')) {
+      const r = el.getBoundingClientRect();
+      const point = { x: r.left + r.width / 2, y: r.top + r.height * 0.25 };
+      const hit = document.elementFromPoint(point.x, point.y);
+      if (hit && el.contains(hit)) points.push(point);
+      if (points.length >= 2) break;
+    }
+    return points;
+  });
+  if (tapTargets.length >= 2) {
+    await page.mouse.click(tapTargets[0].x, tapTargets[0].y);
+    await page.waitForTimeout(200);
+    await page.mouse.click(tapTargets[1].x, tapTargets[1].y);
+    await page.waitForTimeout(200);
+    const built = await page.evaluate(() => document.querySelectorAll('.table-object.selected').length);
+    check('Select mode builds a group by tapping cards', built === 2, `${built} selected`);
+  }
+  await page.locator('.table-toolbar button:has-text("Select mode")').click();
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+
+  // Select the pile again so the next checks have something to act on.
+  const pilePoint = await page.evaluate(() => {
+    const el = document.querySelector('.table-object.stack');
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    const point = { x: r.left + r.width / 2, y: r.top + r.height * 0.25 };
+    const hit = document.elementFromPoint(point.x, point.y);
+    return hit && el.contains(hit) ? point : null;
+  });
+  if (pilePoint) {
+    await page.mouse.click(pilePoint.x, pilePoint.y);
+    await page.waitForTimeout(300);
+  }
+
   // Sound toggle is global and actually silences the table.
   await page.locator('.tips-toggle:has-text("Sound on")').click();
   mark = await audio();

@@ -68,10 +68,10 @@ On shuffle the stack keeps its full back underneath while two clipped halves (le
 `src/features/table/snap.ts` — pure, tested logic:
 
 - **Pitch** = the dragged card's own width (x) and height (y), anchored at the table origin.
-- **Anchors** = positions of every other object on the table, so cards also line up with each other, not just with arithmetic grid lines.
-- **Tolerance** = `min(20% of the card size, 20 units ≈ 10 mm)`. Inside that band the card is pulled to the line; outside it, the card stays exactly where you put it.
+- **Anchors** = the **centres and the two edges** of every other object on the table (`neighbourAnchors`), so cards line up with each other edge-to-edge, not just with arithmetic grid lines. Objects travelling with a selected group are excluded, otherwise the group would anchor itself to where it already is.
+- **Tolerance** = `min(35% of the card size, 45 units ≈ 22 mm)`. Inside that band the card is pulled onto the line; outside it, the card stays exactly where you put it. (A poker card grabs at about a third of its width.)
 - Applied **live while dragging** (magnetic), not only on release.
-- On release, rotation is straightened to the nearest 90° if it is within 4° (`snapRotation`).
+- On release, rotation is straightened to the nearest 90° if it is within 6° (`snapRotation`).
 - The toolbar shows **Snap on/off**; the choice is persisted (`tableSnap`).
 - Faint guide lines are drawn **only while a card is being held**, sized to that card, at 5% opacity.
 
@@ -95,9 +95,9 @@ It is deliberately minimalist but immediately recognisable, so a first-time visi
 
 ## 9. Tests
 
-- `src/test/snap.test.ts` — 9 tests: snap/near-miss behaviour, neighbour alignment, negative coordinates, looser tolerance, rotation straightening, graceful no-op without an audio device.
-- `src/test/standard-deck.test.ts` — 6 tests: 52 unique cards, 13 per suit, real card names, red/black suits, correct pip counts, pips inside the card and never overlapping.
-- `src/test/table-operations.test.ts` — cutting a deck (halves, order preserved, deck reference kept) and deal jitter bounded by ±2°.
+- `src/test/snap.test.ts` — 10 tests: snap/near-miss behaviour, magnetic pull across a third of a card, edge-to-edge neighbour anchors, negative coordinates, tolerance scaling, rotation straightening, graceful no-op without an audio device.
+- `src/test/standard-deck.test.ts` — 7 tests: 52 unique cards, 13 per suit, real card names, red/black suits, correct pip counts, pips inside the card and never overlapping.
+- `src/test/table-operations.test.ts` — 29 tests, including cutting a deck (halves, order preserved, deck reference kept), deal jitter bounded by ±2°, and the group operations: row layout, grid layout, gathering a group into a pile, absorbing loose cards into a stack, and returning a group to its deck.
 - `src/test/sounds.test.ts` — 3 tests against a stub AudioContext that mimics the real one (getter-only `Q`): every sound builds nodes without throwing, the riffle is busier than a single flip, and muting creates nothing.
 - `scripts/e2e-table.mjs` (`npm run test:e2e`) — a headless-Chromium smoke test that starts Vite itself and drives real pointer events: the camera frames the deck, the face-down top card is a real back (not blank stock), the count badge sits on top of the pile, dragging peels a card off a stack, holding grabs the whole deck, shuffle riffles and animates, double-click flips, cut and set-down make sounds, the header Sound toggle silences everything, focus mode fills the viewport and hides the chrome, and the Controls panel still offers decks, surface and undo. Exits non-zero on failure.
 
@@ -114,7 +114,24 @@ It is deliberately minimalist but immediately recognisable, so a first-time visi
 - The preference is remembered (`tableFocus` in the settings store), so the table opens the way you left it.
 - Re-centering happens automatically when focus is toggled and when the window is resized or the tablet rotates, so cards never end up stranded off-screen.
 
-## 11. Deliberate non-goals
+## 11. Working with a group of cards
+
+Selection is a **set** (`selection: string[]`), not a single card, so every table action can operate on many objects at once.
+
+| How you select | Mouse | Touch |
+|---|---|---|
+| Tap a card | selects it | selects it |
+| Shift + tap | add / remove one | — |
+| **Select mode** (toolbar or Controls panel) | every tap adds to the group; dragging empty felt draws a rubber-band box | same — this is the touch route |
+| Shift + drag on the felt | rubber-band box | — |
+| `Select all cards` / `Ctrl`+`A` | selects every loose card | — |
+| Tap empty felt, or `Esc` | clears the group | clears the group |
+
+When two or more cards are selected, the action bar becomes a **group bar**: *Gather into a pile · Arrange in a row · Arrange in a grid · Return to deck · Deselect*. Grabbing any card in the group drags the whole group, keeping the layout. A selected stack gains **Deal into a row**, which deals up to ten cards and lays them out with the staggered deal sound.
+
+The group operations are pure functions in `src/domain/table-operations.ts` (`gatherGroup`, `arrangeInRow`, `arrangeInGrid`, `returnGroupToDeck`), all unit tested. Spacing uses each object's own card size, so bridge cards, minis and poker cards all arrange correctly.
+
+## 12. Deliberate non-goals
 
 - No audio assets, no streaming, no volume slider yet.
 - No true two-half interleaving riffle (propeller shorthand is enough for the feel).

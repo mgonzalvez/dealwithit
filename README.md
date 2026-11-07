@@ -56,15 +56,21 @@ and other standard games are playable from the first visit.
   pulled square again when Snap is on.
 - **Soft grid snapping** — with **Snap on**, a card you are dragging is pulled
   to the nearest grid line (pitch = that card's own size) or to a card it is
-  already near, but only if it is within about a fifth of a card. Anything
-  further off stays exactly where you put it. Faint guide lines appear only
-  while a card is in your hand.
+  already near — its centre or its edge — but only if it is within about a third
+  of a card. Anything further off stays exactly where you put it. Faint guide
+  lines appear only while a card is in your hand.
 - **Cut** — split a stack in two from the stack menu, like cutting a real deck.
+- **Work with a group** — tap cards to select them (Shift+tap to add or remove),
+  Shift-drag across the felt to rubber-band a selection, or turn on **Select
+  mode** and do both with a finger. Then **Gather into a pile**, **Arrange in a
+  row**, **Arrange in a grid** or **Return to deck**. Grabbing any card in the
+  group drags the whole group with it.
 - **Focus mode** — **Focus table** in the header hides the toolbar, the tips and
   the deck tray and lets the felt fill the whole window (handy on a tablet). The
   floating **Controls** panel next to the zoom buttons still has Undo, Redo,
-  Draw direction, Surface, Snap, Clear table, Library, Workshop and a Launch
-  button for every deck. **Esc** or **Exit focus** brings the interface back.
+  Draw direction, Surface, Snap, Select mode, Clear table, Library, Workshop and
+  a Launch button for every deck. **Esc** or **Exit focus** brings the interface
+  back (Esc first clears any selection).
 
 ## Setup
 

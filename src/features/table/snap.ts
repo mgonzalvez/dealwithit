@@ -43,18 +43,28 @@ export function softSnap(
 }
 
 /**
- * How sticky the grid should feel: about a fifth of a card, never more than
- * 20 table units (~10 mm). Anything further off stays exactly where you put it.
+ * How sticky the grid should feel: about a third of a card, capped at 45 table
+ * units (~22 mm). Inside that window the card is pulled onto the line; outside
+ * it stays exactly where you put it.
  */
 export function snapTolerance(cardSize: number): number {
-  return Math.min(cardSize * 0.2, 20);
+  return Math.min(cardSize * 0.35, 45);
 }
 
 /**
  * Straighten a card that is within `within` degrees of square. Dealt cards land
  * 1-2 degrees off; this is the squaring-up tap you give them.
  */
-export function snapRotation(deg: number, within = 4): number {
+export function snapRotation(deg: number, within = 6): number {
   const nearest = Math.round(deg / 90) * 90 + 0;
   return Math.abs(deg - nearest) <= within ? nearest : deg;
+}
+
+/**
+ * Anchor points contributed by the cards already on the table: each card's
+ * centre plus its two edges along the axis, so a card dropped next to another
+ * lines up with it instead of drifting half a card away.
+ */
+export function neighbourAnchors(neighbours: Array<{ centre: number; span: number }>): number[] {
+  return neighbours.flatMap((n) => [n.centre, n.centre - n.span, n.centre + n.span]);
 }
