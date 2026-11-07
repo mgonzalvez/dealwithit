@@ -29,6 +29,8 @@
 ### Core flow
 Home/Library → Create Game → **Upload Images** or **Import ZIP** (equal prominence) → Workshop (Cards & Decks) → Table → Save/Resume → Export `.dealwithit.zip`
 
+A user can also skip uploads entirely: **Play a standard 52-card deck** builds a real poker deck procedurally (`src/domain/standard-deck.ts` = pure rank/suit/pip spec, `src/features/library/standardDeck.ts` = canvas art + persistence) and puts the pack on the felt. Cards/backs are ordinary assets, not a special case.
+
 ### Data model (see spec §4)
 Separate layers, never conflated:
 - `ImageAsset` — immutable original blobs (sha256-hashed for dedupe)
@@ -88,7 +90,8 @@ Card Extractor lives at `https://extractor.gonzhome.us` (tools index: `https://g
 - **Performance budgets:** 500 images / 10 decks / 300 instances; ~60 fps with 100 visible objects; no layout reads inside `pointermove`; rAF batching; batched image decoding; lazy-load + thumbnails; never decode all full-res assets at once
 - **Error handling:** per-file failures don't abort batches; graceful handling of corrupted files, empty decks, missing images, quota errors, interrupted imports
 - **Transactional persistence:** canceled imports leave no orphaned definitions/entries
-- **Table defaults:** launched deck = one stack, backs visible, count badge; neutral generated back if no custom back; table 1600×1000 logical units
+- **Table defaults:** launched deck = one stack, backs visible (the deck's own back — generated or image), count badge; a proper generic back if none was chosen; table 1600×1000 logical units; default surface deep felt green `#15372a`
+- **Table feel:** sounds are synthesised with the Web Audio API (`src/features/table/sounds.ts`) — never audio files; shuffle uses the 500 ms opposing-propeller animation; snapping is soft (`src/features/table/snap.ts`, tolerance `min(20% of card, 20 units)`) and only shows guide lines while a card is being dragged
 
 ## Non-goals (do NOT build)
 
