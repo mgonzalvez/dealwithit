@@ -22,13 +22,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: node --version && npm --version
-      - run: |
-        npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+      - run: node --version
+      - run: npm --version
+      - run: npm ci --no-audit --no-fund
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
-      # Relative base (./) works at both the repo Pages subpath and a custom-domain root.
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
