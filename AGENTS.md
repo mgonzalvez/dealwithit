@@ -153,3 +153,11 @@ Run `npm test`, `npm run lint` and `npm run typecheck` before claiming any chang
   grep -o '"resolved": "https://[^"]*"' package-lock.json | sed 's|.*"https://\([^/]*\)/.*|\1|' | sort | uniq -c
   ```
 - Always verify with `curl -I https://mgonzalvez.github.io/dealwithit/` (expect 200) and `gh run list` (expect a successful deploy) before reporting the site as live.
+
+## Registry & provenance rule (portfolio-wide)
+
+Personal project — completely separate from Apple work.
+
+- `.npmrc` pins `registry=https://registry.npmjs.org`. Never let Apple's internal npm mirror (`npm.apple.com`, `artifacts.apple.com/artifactory/...`) end up in `package-lock.json`; GitHub Actions can't reach it and CI fails with `ENOTFOUND`.
+- Audit before pushing: `../scripts/check-registry.sh` (add `--fix` to normalize).
+- No work credentials, internal hostnames, proprietary assets, or confidential material in this repo.
