@@ -1,19 +1,20 @@
 import { useEffect, useRef } from 'react';
-import { CardDefinition, ImageAsset } from '../../domain/models';
+import { CardDefinition } from '../../domain/models';
+import { backLabel, resolveBack } from '../../domain/back-designs';
 import { CARD_SIZE_PRESETS, rotateTransform } from '../../domain/transforms';
 import { getImageBlob } from '../../persistence/repositories';
 import { loadImage, renderCardPreview } from './cardRenderer';
 import { Button } from '../../components/ui';
+import { Coach } from '../../components/Coach';
 
 export interface CardEditorProps {
   card: CardDefinition;
-  assets: ImageAsset[];
   onSave: (card: CardDefinition) => void;
   onDelete: (card: CardDefinition) => void;
   onDesignBack: (card: CardDefinition) => void;
 }
 
-export function CardEditor({ card, assets, onSave, onDelete, onDesignBack }: CardEditorProps) {
+export function CardEditor({ card, onSave, onDelete, onDesignBack }: CardEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const faceRef = useRef<'front' | 'back'>('front');
   const imagesRef = useRef<{ front: HTMLImageElement | null; back: HTMLImageElement | null }>({
@@ -184,27 +185,19 @@ export function CardEditor({ card, assets, onSave, onDelete, onDesignBack }: Car
           </label>
         </div>
 
-        <div className="control-row">
-          <label>
-            Back image
-            <select
-              value={card.backAssetId ?? ''}
-              onChange={(e) => onSave({ ...card, backAssetId: e.target.value || undefined, backDesign: undefined })}
-            >
-              <option value="">None (use deck default or neutral back)</option>
-              {assets.map((asset) => (
-                <option key={asset.id} value={asset.id}>
-                  {asset.filename}
-                </option>
-              ))}
-            </select>
-          </label>
-          <Button label="Generate a back" variant="secondary" onClick={() => onDesignBack(card)} />
-          {card.backDesign && (
-            <span className="back-chip">
-              Generated: {card.backDesign.pattern} · {card.backDesign.title ? `"${card.backDesign.title}"` : 'no title'}
+        <div className="card-back-panel">
+          <div className="card-back-copy">
+            <strong>Card back</strong>
+            <span className="muted">
+              {backLabel(resolveBack(card))}
+              {card.backDesign?.title ? ` — “${card.backDesign.title}”` : ''}
             </span>
-          )}
+          </div>
+          <Button label="Choose a back" onClick={() => onDesignBack(card)} />
+          <Coach
+            text="This back only affects this card. If you do not set one, the card uses the back of the deck it belongs to."
+            action={{ label: 'Choose a back', onClick: () => onDesignBack(card) }}
+          />
         </div>
 
         <div className="control-row">

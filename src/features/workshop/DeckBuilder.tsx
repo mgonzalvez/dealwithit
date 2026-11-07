@@ -1,6 +1,8 @@
 import { CardDefinition, DeckDefinition, ImageAsset } from '../../domain/models';
 import { deckCardCount } from '../../domain/deck-operations';
+import { BACK_STYLES } from '../../domain/back-designs';
 import { Button } from '../../components/ui';
+import { Coach } from '../../components/Coach';
 import { DECK_ICONS, DeckIconGlyph } from '../decks/deckIcons';
 import { BackChip } from '../backdesign/BackChip';
 
@@ -117,26 +119,40 @@ export function DeckBuilder(props: DeckBuilderProps) {
                 ))}
               </select>
             </label>
-            <label className="deck-back-picker">
-              Default back
-              <select
-                value={activeDeck.defaultBackAssetId ?? ''}
-                onChange={(e) => props.onSetDefaultBack(activeDeck, e.target.value || undefined)}
-              >
-                <option value="">Generated back (choose one below)</option>
-                {props.assets.map((asset) => (
-                  <option key={asset.id} value={asset.id}>
-                    {asset.filename}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <Button label="Generate a back" variant="secondary" onClick={() => props.onDesignBack(activeDeck)} />
-            {activeDeck.defaultBackDesign && <BackChip design={activeDeck.defaultBackDesign} />}
             <Button
               label={`Add ${props.selectedCardIds.size} selected card(s)`}
               onClick={() => props.onAddSelectedCards(activeDeck)}
               disabled={props.selectedCardIds.size === 0}
+            />
+          </div>
+
+          <div className="deck-back-panel">
+            <div className="deck-back-preview">
+              {activeDeck.defaultBackDesign ? (
+                <BackChip design={activeDeck.defaultBackDesign} />
+              ) : activeDeck.defaultBackAssetId ? (
+                <img
+                  src={props.thumbnails.get(activeDeck.defaultBackAssetId) ?? ''}
+                  alt="Current deck back"
+                />
+              ) : (
+                <span className="back-none">no back yet</span>
+              )}
+            </div>
+            <div className="deck-back-copy">
+              <strong>Card back</strong>
+              <span className="muted">
+                {activeDeck.defaultBackDesign
+                  ? `${BACK_STYLES.find((s) => s.id === activeDeck.defaultBackDesign!.pattern)?.label ?? 'Generated'} — every card in this deck uses it`
+                  : activeDeck.defaultBackAssetId
+                    ? 'An image you imported — every card in this deck uses it'
+                    : 'Cards in this deck show a plain grey back'}
+              </span>
+            </div>
+            <Button label="Choose a back" onClick={() => props.onDesignBack(activeDeck)} />
+            <Coach
+              text="Three options: generate a pattern, use an image you already imported, or leave it plain. A card can also have its own back that overrides this one."
+              action={{ label: 'Choose a back', onClick: () => props.onDesignBack(activeDeck) }}
             />
           </div>
 

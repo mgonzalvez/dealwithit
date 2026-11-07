@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { CardDefinition, DeckDefinition, ImageAsset } from '../../domain/models';
-import { resolveBack } from '../../domain/back-designs';
+import { backLabel, resolveBack } from '../../domain/back-designs';
 import { getImageBlob } from '../../persistence/repositories';
 import { loadImage, renderCardPreview } from './cardRenderer';
 import { Button } from '../../components/ui';
+import { Coach } from '../../components/Coach';
 
 /** Cache decoded images by asset id so tiles render instantly. */
 const imageCache = new Map<string, HTMLImageElement | null>();
@@ -34,9 +35,10 @@ export interface CardGridProps {
   onEdit: (id: string) => void;
   onDuplicate: (card: CardDefinition) => void;
   onDelete: (card: CardDefinition) => void;
-  onAssignBack: (card: CardDefinition, backAssetId: string | undefined) => void;
-  onBulkAssignBack: (backAssetId: string | null) => void;
+  /** Opens the card back picker for the selected cards. */
   onDesignBack: () => void;
+  /** Opens the card back picker for one card. */
+  onPickBack: (card: CardDefinition) => void;
   onRotateSelected: () => void;
   onSelectAll: () => void;
   onDeselectAll: () => void;
@@ -57,17 +59,16 @@ function deckForCard(card: CardDefinition, decks: DeckDefinition[]): DeckDefinit
 interface TileProps {
   card: CardDefinition;
   decks: DeckDefinition[];
-  assets: ImageAsset[];
   isSelected: boolean;
   onToggle: (id: string) => void;
   onEdit: (id: string) => void;
   onDuplicate: (card: CardDefinition) => void;
   onDelete: (card: CardDefinition) => void;
-  onAssignBack: (card: CardDefinition, backAssetId: string | undefined) => void;
+  onPickBack: (card: CardDefinition) => void;
 }
 
 function CardTile(props: TileProps) {
-  const { card, decks, assets, isSelected } = props;
+  const { card, decks, isSelected } = props;
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [face, setFace] = useState<'front' | 'back'>('front');
 
@@ -97,30 +98,16 @@ function CardTile(props: TileProps) {
         aria-label={`Show ${face === 'front' ? 'back' : 'front'} of ${card.name}`}
       >
         <canvas ref={canvasRef} />
-        <span className="card-tile-face-label">
-          {face === 'front' ? 'Front' : card.backAssetId ? 'Back' : card.backDesign ? 'Generated back' : 'Neutral back'}
-        </span>
+        <span className="card-tile-face-label">{face === 'front' ? 'Front' : 'Back'}</span>
       </button>
       <div className="card-tile-meta">
         <strong>{card.name}</strong>
         <span className="muted">
           {card.widthMm}×{card.heightMm} mm · {copies > 0 ? `${copies} in decks` : 'not in any deck'}
         </span>
-        <label className="card-tile-back">
-          Back
-          <select
-            value={card.backAssetId ?? ''}
-            onChange={(e) => props.onAssignBack(card, e.target.value || undefined)}
-            aria-label={`Assign a back image to ${card.name}`}
-          >
-            <option value="">Neutral (generated)</option>
-            {assets.map((asset) => (
-              <option key={asset.id} value={asset.id}>
-                {asset.filename}
-              </option>
-            ))}
-          </select>
-        </label>
+        <span className="muted">
+          Back: {backLabel(resolveBack(card, deckForCard(card, decks)))}
+        </span>
       </div>
       <div className="card-tile-actions">
         <label className="card-tile-select">
@@ -132,6 +119,9 @@ function CardTile(props: TileProps) {
           />
           <span>select</span>
         </label>
+        <button type="button" className="icon-btn" onClick={() => props.onPickBack(card)}>
+          Back
+        </button>
         <button type="button" className="icon-btn" onClick={() => props.onEdit(card.id)}>
           Edit
         </button>
@@ -155,43 +145,29 @@ export function CardGrid(props: CardGridProps) {
         <span className="muted">{props.selected.size} selected</span>
         {props.selected.size > 0 && (
           <>
-            <Button label="Design a generated back" variant="secondary" onClick={props.onDesignBack} />
+            <Button label="Choose a back for selected cards" onClick={props.onDesignBack} />
             <Button label="Rotate 90°" variant="secondary" onClick={props.onRotateSelected} />
-            <label className="card-grid-bulk-back">
-              Apply back to selected
-              <select
-                value=""
-                onChange={(e) => {
-                  if (e.target.value === '__none__') props.onBulkAssignBack(null);
-                  else if (e.target.value) props.onBulkAssignBack(e.target.value);
-                }}
-                aria-label="Apply a back image to all selected cards"
-              >
-                <option value="">Choose a back…</option>
-                <option value="__none__">Remove backs</option>
-                {props.assets.map((asset) => (
-                  <option key={asset.id} value={asset.id}>
-                    {asset.filename}
-                  </option>
-                ))}
-              </select>
-            </label>
           </>
         )}
       </div>
+
+      <Coach
+        text="Click a card to flip it and check its back. Select several cards, then press “Choose a back for selected cards” to give them all the same one."
+        action={{ label: 'Choose a back', onClick: props.onDesignBack }}
+      />
+
       <div className="card-grid-v2-list">
         {props.cards.map((card) => (
           <CardTile
             key={card.id}
             card={card}
             decks={props.decks}
-            assets={props.assets}
             isSelected={props.selected.has(card.id)}
             onToggle={props.onToggle}
             onEdit={props.onEdit}
             onDuplicate={props.onDuplicate}
             onDelete={props.onDelete}
-            onAssignBack={props.onAssignBack}
+            onPickBack={props.onPickBack}
           />
         ))}
       </div>

@@ -9,3 +9,6 @@ dist/
 package-lock*.bak.json
 package-lock 2.json
 package-lock copy.json
+
+# Throwaway local render previews used for visual checks
+tmp-preview/

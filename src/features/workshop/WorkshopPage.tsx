@@ -25,7 +25,6 @@ import {
   renameDeck,
   removeEntry,
   setDefaultBack,
-  setGeneratedBack,
   setEntryQuantity
 } from '../../domain/deck-operations';
 import { rotateTransform } from '../../domain/transforms';
@@ -39,6 +38,7 @@ import { CardEditor } from './CardEditor';
 import { DeckBuilder } from './DeckBuilder';
 import { CardGrid } from './CardGrid';
 import { CardBackDesigner } from '../backdesign/CardBackDesigner';
+import { Coach } from '../../components/Coach';
 import { GeneratedBack } from '../../domain/back-designs';
 import { duplicateCardDefinition } from '../../domain/card-operations';
 import { transferEntry } from '../../domain/deck-operations';
@@ -92,8 +92,9 @@ export function WorkshopPage({
     scope: 'deck' | 'cards' | 'card';
     deckId?: string;
     cardId?: string;
-    initial?: GeneratedBack;
+    targetName: string;
   } | null>(null);
+  const [backNotice, setBackNotice] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const zipInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -377,44 +378,45 @@ export function WorkshopPage({
     await refresh();
   }
 
-  async function bulkAssignBack(backAssetId: string | null) {
-    if (!projectId) return;
-    for (const card of cards) {
-      if (!selectedCardIds.has(card.id)) continue;
-      await saveCardDefinition({ ...card, backAssetId: backAssetId ?? undefined, backDesign: undefined });
-    }
-    await touchProject(projectId);
-    markSaved();
-    await refresh();
-  }
-
-  /** Apply a generated back. Generated and uploaded backs are mutually exclusive. */
-  async function applyBackDesign(design: GeneratedBack) {
+  /** Attach a back (generated pattern, uploaded image, or none) to a deck, selected cards, or one card. */
+  async function commitBack(back: { design?: GeneratedBack; assetId?: string }) {
     if (!projectId || !backDesigner) return;
     if (backDesigner.scope === 'deck') {
       const deck = decks.find((d) => d.id === backDesigner.deckId);
-      if (deck) await saveDeck(setGeneratedBack(deck, design));
+      if (deck) {
+        await saveDeck({
+          ...deck,
+          defaultBackDesign: back.design,
+          defaultBackAssetId: back.assetId,
+          updatedAt: Date.now()
+        });
+      }
     } else if (backDesigner.scope === 'cards') {
       for (const card of cards) {
         if (!selectedCardIds.has(card.id)) continue;
-        await saveCardDefinition({ ...card, backDesign: design, backAssetId: undefined });
+        await saveCardDefinition({ ...card, backDesign: back.design, backAssetId: back.assetId });
       }
     } else {
       const card = cards.find((c) => c.id === backDesigner.cardId);
-      if (card) await saveCardDefinition({ ...card, backDesign: design, backAssetId: undefined });
+      if (card) await saveCardDefinition({ ...card, backDesign: back.design, backAssetId: back.assetId });
     }
     await touchProject(projectId);
-    markSaved();
+    setBackNotice(`Card back set for ${backDesigner.targetName}.`);
+    setTimeout(() => setBackNotice(null), 4000);
     setBackDesigner(null);
+    markSaved();
     await refresh();
   }
 
-  function openBackDesigner(scope: 'deck' | 'cards' | 'card', id?: string) {
-    const initial =
-      scope === 'deck'
-        ? decks.find((d) => d.id === id)?.defaultBackDesign
-        : cards.find((c) => c.id === id)?.backDesign;
-    setBackDesigner({ scope, deckId: scope === 'deck' ? id : undefined, cardId: scope === 'card' ? id : undefined, initial });
+  function openBackPicker(scope: 'deck' | 'cards' | 'card', id?: string) {
+    const deck = scope === 'deck' ? decks.find((d) => d.id === id) : undefined;
+    const card = scope === 'card' ? cards.find((c) => c.id === id) : undefined;
+    setBackDesigner({
+      scope,
+      deckId: scope === 'deck' ? id : undefined,
+      cardId: scope === 'card' ? id : undefined,
+      targetName: deck?.name ?? card?.name ?? `${selectedCardIds.size} selected cards`
+    });
   }
 
   async function transferCard(deck: DeckDefinition, entryId: string, targetDeckId: string) {
@@ -502,6 +504,7 @@ export function WorkshopPage({
     >
       <h1>Workshop{project ? ` — ${project.name}` : ''}</h1>
       {saveStatus && <p className="save-status">{saveStatus}</p>}
+      {backNotice && <p className="back-notice" role="status">{backNotice}</p>}
 
       <nav className="workshop-tabs" aria-label="Workshop sections">
         <button type="button" className={`tab ${tab === 'import' ? 'active' : ''}`} onClick={() => setTab('import')}>
@@ -548,6 +551,9 @@ export function WorkshopPage({
             You can also drag images anywhere into this page, or paste an image from the clipboard.
             One image, a hundred, or any mix — repeat as often as you like.
           </p>
+          <Coach
+            text="Backs do not have to be images. Once you have a deck, press “Choose a back” and Deal With It will draw the pattern for you."
+          />
 
           <ImportStaging
             items={staged}
@@ -642,9 +648,8 @@ export function WorkshopPage({
               onEdit={(id) => setActiveCardId(id)}
               onDuplicate={(card) => void duplicateCard(card)}
               onDelete={deleteCard}
-              onAssignBack={(card, backAssetId) => void saveCard({ ...card, backAssetId, backDesign: undefined })}
-              onBulkAssignBack={(backAssetId) => void bulkAssignBack(backAssetId)}
-              onDesignBack={() => openBackDesigner(selectedCardIds.size ? 'cards' : 'deck', decks[0]?.id)}
+              onDesignBack={() => openBackPicker('cards')}
+              onPickBack={(card) => openBackPicker('card', card.id)}
               onRotateSelected={() => void batchRotateSelected()}
               onSelectAll={() => setSelectedCardIds(new Set(cards.map((card) => card.id)))}
               onDeselectAll={() => setSelectedCardIds(new Set())}
@@ -654,10 +659,9 @@ export function WorkshopPage({
           {activeCard && (
             <CardEditor
               card={activeCard}
-              assets={assets}
               onSave={(card) => void saveCard(card)}
               onDelete={deleteCard}
-              onDesignBack={(card) => openBackDesigner('card', card.id)}
+              onDesignBack={(card) => openBackPicker('card', card.id)}
             />
           )}
 
@@ -687,7 +691,7 @@ export function WorkshopPage({
           onAddSelectedCards={(deck) => void addSelectedCardsToDeck(deck)}
           onPlay={() => navigate(`#/table/${projectId}`)}
           onSetIcon={(deck, icon) => void updateDeck({ ...deck, icon: icon || undefined })}
-          onDesignBack={(deck) => openBackDesigner('deck', deck.id)}
+          onDesignBack={(deck) => openBackPicker('deck', deck.id)}
           cards={cards}
           selectedCardIds={selectedCardIds}
           assets={assets}
@@ -701,13 +705,27 @@ export function WorkshopPage({
         </>
       )}
 
-      <Dialog title="Design a card back" open={backDesigner !== null} onClose={() => setBackDesigner(null)}>
+      <Dialog title="Card back" open={backDesigner !== null} onClose={() => setBackDesigner(null)}>
         {backDesigner && (
           <CardBackDesigner
+            targetName={backDesigner.targetName}
             projectName={project?.name ?? 'My game'}
-            initial={backDesigner.initial}
             scope={backDesigner.scope}
-            onApply={(design) => void applyBackDesign(design)}
+            initialDesign={
+              backDesigner.scope === 'deck'
+                ? decks.find((d) => d.id === backDesigner.deckId)?.defaultBackDesign
+                : cards.find((c) => c.id === backDesigner.cardId)?.backDesign
+            }
+            initialImageAssetId={
+              backDesigner.scope === 'deck'
+                ? decks.find((d) => d.id === backDesigner.deckId)?.defaultBackAssetId
+                : cards.find((c) => c.id === backDesigner.cardId)?.backAssetId
+            }
+            assets={assets}
+            thumbnails={thumbnails}
+            onApplyPattern={(design) => void commitBack({ design })}
+            onApplyImage={(assetId) => void commitBack({ assetId })}
+            onRemove={() => void commitBack({})}
             onCancel={() => setBackDesigner(null)}
           />
         )}

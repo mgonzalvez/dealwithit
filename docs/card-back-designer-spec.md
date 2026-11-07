@@ -2,28 +2,35 @@
 
 **Feature:** generate a card back instead of uploading one — a playing-card style pattern, or a classic back with the game name printed on it. Six styles, eight colours, three clicks.
 
-**Implemented:** 2026-11-07.
-**Files:** `src/domain/back-designs.ts` (pattern math), `src/features/backdesign/CardBackDesigner.tsx` (wizard), `src/features/backdesign/BackChip.tsx`, `src/features/workshop/cardRenderer.ts` (drawing).
+**Implemented:** 2026-11-07, reworked 2026-11-07 (v2) into a single picker that also covers uploaded-image backs and "no back".
+**Files:** `src/domain/back-designs.ts` (pattern math), `src/features/backdesign/CardBackDesigner.tsx` (picker), `src/features/backdesign/BackChip.tsx`, `src/features/workshop/cardRenderer.ts` (drawing), `src/app/tips.ts` + `src/components/Coach.tsx` (inline coaching).
 
 ---
 
 ## 1. What the user sees
 
-In **Workshop › Decks**, press **Generate a back**. A three-step wizard opens:
+There is **one button for backs: "Choose a back"** — on the deck panel, on the Cards tab toolbar (for selected cards), on each card tile, and in the card editor. No dropdowns, no separate "generate" vs "assign" paths.
 
-1. **Style** — six thumbnails rendered live in the colours you've chosen:
-   Classic diamonds · Crosshatch · Ring pattern · Waves · Polka dots · Solid colour
-2. **Colour** — eight curated colours (Crimson, Midnight, Forest, Cream, Teal, Violet, Slate, Mustard), or two custom pickers for background and pattern.
-3. **Name** — type the game name (pre-filled with the project name) or leave it blank for a pattern-only back.
+The picker opens with a live preview on the left and three tabs on the right:
 
-Extras: **Surprise me** (random style + colour) and **Shuffle pattern** (keep the colours, redraw the pattern). A large preview updates on every click.
+| Tab | What it does |
+|---|---|
+| **Generate a pattern** | 1. Pick a pattern (6 live thumbnails) · 2. Pick a colour (8 curated + custom background/pattern pickers) · 3. Optionally put the game name on it |
+| **Use an image** | Grid of every image already imported in the project, with thumbnails |
+| **No back** | Clears the back; cards show the neutral grey back |
+
+Extras: **Surprise me** (random style + colour) and **Shuffle the pattern** (keep the colours, redraw the pattern). A large preview updates on every click, and shows the image thumbnail when an image is chosen.
 
 Apply targets, depending on where you opened it:
 - **Apply to this deck** — every card in the deck uses it.
 - **Apply to selected cards** — from the Cards tab toolbar.
-- **Apply to this card** — from the card editor.
+- **Apply to this card** — from a card tile or the card editor.
 
-A small thumbnail chip shows the deck's current generated back.
+A small live chip shows the deck's current back.
+
+### Coaching tips (v2)
+
+Each decision point carries a one-line `Coach` hint (e.g. "Diamonds is the classic playing-card look…", "This back only affects this card. If you do not set one, the card uses the back of the deck it belongs to."). The **Tips on/off** button in the header toggles them globally; the choice is persisted in the settings store (`getSetting('tips')`) so a confident user can switch them off for good. The full guided Tour remains available from the Library.
 
 ## 2. Data model
 

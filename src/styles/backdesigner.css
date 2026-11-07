@@ -1,59 +1,20 @@
-/* ===== Card Back Designer (wizard) ===== */
+/* ===== Card back picker + inline coaching tips ===== */
 
-.back-designer {
-  display: grid;
-  grid-template-columns: 240px 1fr;
-  gap: 18px;
-  padding: 4px 0 0;
-}
-
-.back-designer-preview {
+/* --- Coach tip (toggleable from the header) --- */
+.coach {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 10px;
-  align-items: center;
-}
-
-.back-designer-preview canvas {
-  width: 100%;
-  max-width: 240px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border-strong);
-  box-shadow: var(--shadow-card);
-}
-
-.back-designer-steps {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.back-designer-tabs {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.back-step {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--control-bg);
-  color: var(--text-secondary);
-  font-size: 14px;
-  min-height: 40px;
-}
-
-.back-step.on {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--border-strong);
   background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--ink);
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
-.back-step-num {
+.coach-mark {
   display: inline-grid;
   place-items: center;
   width: 22px;
@@ -61,13 +22,124 @@
   border-radius: 999px;
   background: var(--accent);
   color: var(--accent-ink);
-  font-size: 12px;
   font-weight: 700;
+  font-size: 12px;
+  flex: 0 0 auto;
+}
+
+.coach p {
+  margin: 0;
+}
+
+.coach-action {
+  border: 1px solid var(--accent);
+  background: var(--surface-solid);
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 6px 12px;
+  min-height: 34px;
+  font-size: 13px;
+}
+
+.tips-toggle {
+  border: 1px solid var(--border-strong);
+  background: var(--control-bg);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 8px 12px;
+  min-height: 40px;
+  font-size: 13px;
+}
+
+.tips-toggle[aria-pressed='true'] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+/* --- Card back picker --- */
+.back-center {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 18px;
+  padding-top: 4px;
+}
+
+.back-center-preview img {
+  width: 100%;
+  max-width: 240px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-card);
+  object-fit: cover;
+}
+
+.back-center-preview canvas {
+  width: 100%;
+  max-width: 240px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-card);
+}
+
+.back-center-preview-note {
+  margin: 8px 0 0;
+  font-size: 13px;
+  text-align: center;
+}
+
+.back-center-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.back-mode-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.back-mode {
+  min-height: 42px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--control-bg);
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.back-mode.on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.back-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.back-section h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.back-section input[type='text'] {
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-solid);
+  color: var(--ink);
+  font: inherit;
 }
 
 .back-options {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
   gap: 10px;
 }
 
@@ -80,7 +152,6 @@
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--surface-solid);
-  min-height: 44px;
   font-size: 13px;
 }
 
@@ -98,17 +169,17 @@
 
 .back-colors {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   gap: 10px;
 }
 
 .back-color {
-  min-height: 52px;
+  min-height: 46px;
   border-radius: var(--radius-sm);
   border: 2px solid var(--border-strong);
   color: var(--ink);
   font-size: 13px;
-  padding: 10px;
+  padding: 8px;
 }
 
 .back-color.selected {
@@ -133,31 +204,111 @@
   background: var(--surface-solid);
 }
 
-.back-name label {
-  display: block;
-  gap: 8px;
-  font-size: 14px;
+.back-image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
 }
 
-.back-name input[type='text'] {
-  width: 100%;
-  min-height: 44px;
-  padding: 10px 12px;
+.back-image {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  padding: 8px;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border);
   background: var(--surface-solid);
-  color: var(--ink);
-  font: inherit;
+  font-size: 12px;
 }
 
-.back-designer-actions {
+.back-image img {
+  width: 70px;
+  height: 96px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.back-image.selected {
+  border-color: var(--accent);
+  box-shadow: var(--focus);
+}
+
+.back-center-actions {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-  margin-top: 4px;
+  align-items: center;
 }
 
-/* Small back chip shown next to a deck or card */
+/* --- Deck back panel --- */
+.deck-back-panel {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  margin-bottom: 12px;
+}
+
+.deck-back-preview {
+  display: flex;
+  align-items: center;
+}
+
+.deck-back-preview img {
+  width: 60px;
+  height: 84px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  object-fit: cover;
+}
+
+.back-none {
+  display: inline-grid;
+  place-items: center;
+  width: 60px;
+  height: 84px;
+  border-radius: 8px;
+  border: 1px dashed var(--border-strong);
+  background: var(--surface-solid);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.deck-back-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 180px;
+}
+
+.card-back-panel {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.card-back-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.back-notice {
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: 13px;
+}
+
 .back-chip {
   display: inline-flex;
   align-items: center;
@@ -165,8 +316,8 @@
   padding: 6px 10px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: var(--surface-alt);
-  font-size: 13px;
+  background: var(--surface-solid);
+  font-size: 12px;
   color: var(--text-secondary);
 }
 
@@ -177,11 +328,11 @@
   border: 1px solid var(--border);
 }
 
-@media (max-width: 720px) {
-  .back-designer {
+@media (max-width: 760px) {
+  .back-center {
     grid-template-columns: 1fr;
   }
-  .back-designer-preview canvas {
+  .back-center-preview canvas {
     max-width: 180px;
   }
 }

@@ -5,6 +5,7 @@ import { TablePage } from '../features/table/TablePage';
 import { getSetting, listProjects, setSetting } from '../persistence/repositories';
 import { createDemoProject } from '../features/library/demo';
 import { TOUR_STEPS, TourRail } from '../features/onboarding/Tour';
+import { TipsContext } from './tips';
 
 const RELATED_TOOLS = [
   { name: 'GonzHome — all tools', url: 'https://gonzhome.us' },
@@ -36,6 +37,7 @@ function applyTheme(theme: 'light' | 'dark') {
 export function App() {
   const [route, setRoute] = useState<Route>(() => parseHash(window.location.hash));
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [tipsEnabled, setTipsEnabled] = useState(true);
   const [tourStep, setTourStep] = useState<number | null>(null);
 
   const navigate = (hash: string) => {
@@ -58,6 +60,7 @@ export function App() {
       setTheme(next);
       applyTheme(next);
     });
+    void getSetting('tips').then((stored) => setTipsEnabled(stored !== false));
   }, []);
 
   async function ensureTourProject(): Promise<string> {
@@ -96,6 +99,12 @@ export function App() {
     setTheme(next);
     applyTheme(next);
     void setSetting('theme', next);
+  }
+
+  function toggleTips() {
+    const next = !tipsEnabled;
+    setTipsEnabled(next);
+    void setSetting('tips', next);
   }
 
   return (
@@ -160,6 +169,15 @@ export function App() {
             </details>
             <button
               type="button"
+              className="tips-toggle"
+              aria-pressed={tipsEnabled}
+              onClick={toggleTips}
+              title={tipsEnabled ? 'Hide step-by-step tips' : 'Show step-by-step tips'}
+            >
+              Tips {tipsEnabled ? 'on' : 'off'}
+            </button>
+            <button
+              type="button"
               className="theme-toggle"
               onClick={toggleTheme}
               aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} appearance`}
@@ -177,11 +195,13 @@ export function App() {
         </div>
       </header>
       <main>
-        {route.area === 'library' && <LibraryPage navigate={navigate} startTour={startTour} />}
-        {route.area === 'workshop' && (
-          <WorkshopPage projectId={route.projectId} navigate={navigate} initialTab={route.tab} />
-        )}
-        {route.area === 'table' && <TablePage projectId={route.projectId} navigate={navigate} />}
+        <TipsContext.Provider value={{ enabled: tipsEnabled, setEnabled: setTipsEnabled }}>
+          {route.area === 'library' && <LibraryPage navigate={navigate} startTour={startTour} />}
+          {route.area === 'workshop' && (
+            <WorkshopPage projectId={route.projectId} navigate={navigate} initialTab={route.tab} />
+          )}
+          {route.area === 'table' && <TablePage projectId={route.projectId} navigate={navigate} />}
+        </TipsContext.Provider>
       </main>
       {tourStep !== null && (
         <TourRail

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { EmptyState } from '../../components/ui';
+import { Coach } from '../../components/Coach';
+import { BackChip } from '../backdesign/BackChip';
 import {
   getProject,
   getImageBlob,
@@ -837,12 +839,16 @@ export function TablePage({
           {trayOpen && (
             <div className="tray-decks">
               {decks.length === 0 && <p className="muted">No decks yet — build one in the Workshop.</p>}
+              <Coach
+                text="Launch a deck and it appears as a face-down stack. Drag the top card off it to draw, or hold a stack briefly and drag to carry the whole deck."
+              />
               {decks.map((deck) => (
                 <div key={deck.id} className="tray-deck">
                   <div>
                     <strong>{deck.name}</strong>
                     <span className="muted"> · {deckCardCount(deck)} cards</span>
                   </div>
+                  {deck.defaultBackDesign && <BackChip design={deck.defaultBackDesign} label="back" />}
                   <button type="button" className="btn btn-primary" onClick={() => launch(deck)}>
                     Launch
                   </button>
