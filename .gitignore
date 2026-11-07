@@ -3,3 +3,9 @@ dist/
 *.log
 .DS_Store
 .vscode/
+
+# Local backup copies of the lockfile must never be committed:
+# a stale one can carry Apple-internal npm mirror URLs and break CI.
+package-lock*.bak.json
+package-lock 2.json
+package-lock copy.json
