@@ -80,7 +80,7 @@ drawGeneratedBack(ctx, design, width, height)   // draws base + shapes + frame
 
 ## 6. Tutorial
 
-A new tour step — **"Design your own card back"** — sits between "Pair fronts with backs" and "Assemble a deck", and QuickStart step 3 mentions generated backs. The demo deck ships with a generated diamond back so the feature is visible immediately. QuickStart also offers **Play a standard 52-card deck** for visitors who have nothing to upload.
+The tour step **"Choose a card back"** sits between "Pair fronts with backs" and "Assemble a deck", and QuickStart step 4 mentions generated backs. The demo deck ships with a generated diamond back so the feature is visible immediately, and QuickStart step 1 offers **Play a standard 52-card deck** for visitors who have nothing to upload.
 
 ## 7. Backs on the Table
 
