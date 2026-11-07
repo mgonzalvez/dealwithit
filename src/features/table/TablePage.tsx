@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { EmptyState } from '../../components/ui';
 import { Coach } from '../../components/Coach';
-import { BackChip } from '../backdesign/BackChip';
+import { backLabel, resolveBack } from '../../domain/back-designs';
 import {
   getProject,
   getImageBlob,
@@ -38,13 +38,16 @@ import {
   shuffleStack
 } from '../../domain/table-operations';
 import { deckCardCount } from '../../domain/deck-operations';
-import { resolveBack } from '../../domain/back-designs';
 import { loadImage, renderCardPreview } from '../workshop/cardRenderer';
+import { playTableSound, setSoundMuted, type TableSound } from './sounds';
+import { softSnap, snapTolerance } from './snap';
 
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 3;
 const MM_TO_UNITS = 2; // 1 mm = 2 logical table units
 const HOLD_TO_GRAB_MS = 700; // hold a stack this long to move the whole deck
+const FELT_GREEN = '#15372a';
+const SHUFFLE_MS = 700;
 
 interface Snapshot {
   objects: TableObject[];
@@ -84,7 +87,6 @@ export function TablePage({
   const [project, setProject] = useState<Project | null>(null);
   const [decks, setDecks] = useState<DeckDefinition[]>([]);
   const [cards, setCards] = useState<Map<string, CardDefinition>>(new Map());
-  const [faces, setFaces] = useState<Map<string, string>>(new Map());
   const [table, setTable] = useState<TableState | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [peek, setPeek] = useState<{ url: string; x: number; y: number } | null>(null);
@@ -94,10 +96,16 @@ export function TablePage({
   const [drawFaceUp, setDrawFaceUp] = useState(false);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [grabbingId, setGrabbingId] = useState<string | null>(null);
+  const [soundOn, setSoundOn] = useState(true);
+  const [snapOn, setSnapOn] = useState(true);
+  const [animations, setAnimations] = useState<Map<string, string>>(new Map());
+  const [deckThumbs, setDeckThumbs] = useState<Map<string, { url: string; label: string }>>(new Map());
 
   const tableRef = useRef<TableState | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
+  const imagesRef = useRef<Map<string, HTMLImageElement>>(new Map());
+  const faceCacheRef = useRef<Map<string, string>>(new Map());
   const spaceRef = useRef(false);
   const grabTimerRef = useRef<number | null>(null);
   const pastRef = useRef<Snapshot[]>([]);
@@ -124,37 +132,97 @@ export function TablePage({
         name: 'Main table',
         objects: [],
         camera: { x: 0, y: 0, zoom: 1 },
-        background: '#4a5b4f',
+        background: FELT_GREEN,
         updatedAt: Date.now()
       };
+      await saveTable(table);
+    } else if (table.background === '#4a5b4f') {
+      // Old muted-green default → the deeper felt we ship now.
+      table = { ...table, background: FELT_GREEN };
       await saveTable(table);
     }
     setProject(project ?? null);
     setDecks(decks);
     setCards(new Map(cards.map((c) => [c.id, c])));
 
-    // Pre-render card faces (front + back) at table resolution and cache
-    // them as data URLs. Original blobs stay untouched in IndexedDB.
-    const faceCache = new Map<string, string>();
+    // Decode every image the table might need once, then draw faces on demand
+    // (and cache the drawing). Original blobs stay untouched in IndexedDB.
+    const images = new Map<string, HTMLImageElement>();
+    const ensureImage = async (assetId: string | undefined) => {
+      if (!assetId || images.has(assetId)) return;
+      const blob = await getImageBlob(assetId);
+      if (!blob) return;
+      const image = await loadImage(blob);
+      if (image) images.set(assetId, image);
+    };
     for (const card of cards) {
-      const frontBlob = await getImageBlob(card.frontAssetId);
-      const frontImage = frontBlob ? await loadImage(frontBlob) : null;
-      const deck = decks.find((d) => d.entries.some((entry) => entry.cardDefinitionId === card.id));
-      const source = resolveBack(card, deck);
-      const backAssetId = source.kind === 'image' ? source.assetId : undefined;
-      const backBlob = backAssetId ? await getImageBlob(backAssetId) : null;
-      const backImage = backBlob ? await loadImage(backBlob) : null;
-      const backDesign = source.kind === 'generated' ? source.design : undefined;
-      for (const face of ['front', 'back'] as const) {
-        const canvas = document.createElement('canvas');
-        renderCardPreview(card, frontImage, backImage, face, canvas, 300, backDesign);
-        faceCache.set(`${card.id}:${face}`, canvas.toDataURL('image/png'));
-      }
+      await ensureImage(card.frontAssetId);
+      await ensureImage(card.backAssetId);
     }
-    setFaces(faceCache);
+    for (const deck of decks) await ensureImage(deck.defaultBackAssetId);
+    imagesRef.current = images;
+    faceCacheRef.current.clear();
+
+    const thumbs = new Map<string, { url: string; label: string }>();
+    for (const deck of decks) {
+      const entry = deck.entries[0];
+      const card = entry ? cards.find((c) => c.id === entry.cardDefinitionId) : undefined;
+      if (!card) continue;
+      thumbs.set(deck.id, {
+        url: renderFace(card, 'back', deck, 120),
+        label: backLabel(resolveBack(card, deck))
+      });
+    }
+    setDeckThumbs(thumbs);
+
     setTable(table);
     setDrawFaceUp(Boolean(await getSetting(`drawFaceUp:${table.id}`)));
+    const storedSound = await getSetting('tableSound');
+    const nextSound = storedSound !== false;
+    setSoundOn(nextSound);
+    setSoundMuted(!nextSound);
+    setSnapOn((await getSetting('tableSnap')) !== false);
     setLoading(false);
+  }
+
+  /** Draw one face of a card at table resolution, cached by card + face + deck. */
+  function renderFace(card: CardDefinition, face: 'front' | 'back', deck?: DeckDefinition, size = 300): string {
+    const key = `${card.id}:${face}:${face === 'back' ? deck?.id ?? 'none' : ''}`;
+    const cached = faceCacheRef.current.get(key);
+    if (cached) return cached;
+    const source = resolveBack(card, deck);
+    const canvas = document.createElement('canvas');
+    renderCardPreview(
+      card,
+      imagesRef.current.get(card.frontAssetId) ?? null,
+      source.kind === 'image' ? imagesRef.current.get(source.assetId) ?? null : null,
+      face,
+      canvas,
+      size,
+      source.kind === 'generated' ? source.design : undefined
+    );
+    const url = canvas.toDataURL('image/png');
+    faceCacheRef.current.set(key, url);
+    return url;
+  }
+
+  function animate(objectIds: string[], kind: string, duration: number) {
+    setAnimations((current) => {
+      const next = new Map(current);
+      for (const id of objectIds) next.set(id, kind);
+      return next;
+    });
+    setTimeout(() => {
+      setAnimations((current) => {
+        const next = new Map(current);
+        for (const id of objectIds) next.delete(id);
+        return next;
+      });
+    }, duration);
+  }
+
+  function sound(kind: TableSound) {
+    if (soundOn) playTableSound(kind);
   }
 
   useEffect(() => {
@@ -520,6 +588,7 @@ export function TablePage({
       }
       snapshot();
       const objects = drawFromStack(stack, current.objects, { faceUp: drawFaceUp });
+      sound('draw');
       const drawn = objects.find(
         (o) => o.type === 'card' && !current.objects.some((c) => c.id === o.id)
       );
@@ -552,8 +621,18 @@ export function TablePage({
     const current = tableRef.current;
     if (!current) return;
     drag.moved = true;
-    const x = Math.min(TABLE_WIDTH, Math.max(0, world.x + (drag.dx ?? 0)));
-    const y = Math.min(TABLE_HEIGHT, Math.max(0, world.y + (drag.dy ?? 0)));
+    const rawX = Math.min(TABLE_WIDTH, Math.max(0, world.x + (drag.dx ?? 0)));
+    const rawY = Math.min(TABLE_HEIGHT, Math.max(0, world.y + (drag.dy ?? 0)));
+    let x = rawX;
+    let y = rawY;
+    if (snapOn) {
+      const dragged = current.objects.find((o) => o.id === drag.id);
+      const topCard = dragged ? cards.get(dragged.cardInstances[dragged.cardInstances.length - 1]?.cardDefinitionId) : undefined;
+      const size = cardSize(topCard);
+      const others = current.objects.filter((o) => o.id !== drag.id);
+      x = softSnap(x, size.w, snapTolerance(size.w), others.map((o) => o.x));
+      y = softSnap(y, size.h, snapTolerance(size.h), others.map((o) => o.y));
+    }
     setTable({
       ...current,
       objects: current.objects.map((o) => (o.id === drag.id ? { ...o, x, y } : o))
@@ -591,6 +670,7 @@ export function TablePage({
               .filter((o) => o.id !== dragged.id)
               .map((o) => (o.id === target.id ? mergeStack(target, dragged) : o))
           );
+          sound('place');
         }
       }
     }
@@ -634,6 +714,7 @@ export function TablePage({
       TABLE_HEIGHT / 2 - (current.objects.length % 4) * 90
     );
     mutate([...current.objects, stack]);
+    sound('place');
     if (wasEmpty) {
       // First deck on an empty table: zoom in on it instead of the whole felt.
       setTimeout(() => fitView(), 60);
@@ -645,12 +726,16 @@ export function TablePage({
   }
 
   /** Apply an action to an object by id (used by the context menu). */
-  function applyTo(id: string, fn: (objects: TableObject[], object: TableObject) => TableObject[]) {
+  function applyTo(id: string, fn: (objects: TableObject[], object: TableObject) => TableObject[], withSound?: TableSound) {
     const current = tableRef.current;
     if (!current) return;
     const object = current.objects.find((o) => o.id === id);
     if (!object) return;
     mutate(fn(current.objects, object));
+    if (withSound) {
+      if (withSound === 'shuffle') animate([id], 'shuffle', SHUFFLE_MS);
+      sound(withSound);
+    }
     setMenu(null);
   }
 
@@ -670,8 +755,10 @@ export function TablePage({
   function peekTop(object: TableObject) {
     const top = object.cardInstances[object.cardInstances.length - 1];
     if (!top) return;
-    const url = faces.get(`${top.cardDefinitionId}:front`) ?? '';
-    setPeek({ url, x: object.x, y: object.y - 140 });
+    const card = cards.get(top.cardDefinitionId);
+    const deck = object.sourceDeckId ? decks.find((d) => d.id === object.sourceDeckId) : undefined;
+    if (!card) return;
+    setPeek({ url: renderFace(card, 'front', deck), x: object.x, y: object.y - 140 });
     setTimeout(() => setPeek(null), 2500);
   }
 
@@ -680,6 +767,7 @@ export function TablePage({
     const current = tableRef.current;
     if (!object || !current) return;
     mutate(current.objects.map((o) => (o.id === object.id ? flipTop(o) : o)));
+    sound('flip');
   }
 
   function shuffleSelected() {
@@ -687,6 +775,8 @@ export function TablePage({
     const current = tableRef.current;
     if (!object || !current) return;
     mutate(shuffleStack(object, current.objects));
+    animate([object.id], 'shuffle', SHUFFLE_MS);
+    sound('shuffle');
   }
 
   function drawOne() {
@@ -694,13 +784,19 @@ export function TablePage({
     const current = tableRef.current;
     if (!object || !current) return;
     mutate(drawFromStack(object, current.objects, { faceUp: drawFaceUp }));
+    sound('draw');
   }
 
   function dealN(n: number) {
     const object = selectedObject();
     const current = tableRef.current;
     if (!object || !current) return;
-    mutate(dealFromStack(object, current.objects, n, { faceUp: drawFaceUp }));
+    const before = new Set(current.objects.map((o) => o.id));
+    const objects = dealFromStack(object, current.objects, n, { faceUp: drawFaceUp });
+    mutate(objects);
+    const dealt = objects.filter((o) => !before.has(o.id)).map((o) => o.id);
+    animate(dealt, 'dealt', 320);
+    dealt.forEach((_, index) => setTimeout(() => sound('deal'), index * 150));
   }
 
   function dealPrompt() {
@@ -721,6 +817,7 @@ export function TablePage({
     const current = tableRef.current;
     if (!object || !current) return;
     mutate(gatherInto(object, current.objects, 170));
+    sound('gather');
   }
 
   function rotateSelected() {
@@ -728,6 +825,7 @@ export function TablePage({
     const current = tableRef.current;
     if (!object || !current) return;
     mutate(current.objects.map((o) => (o.id === object.id ? rotateObject(o, 90) : o)));
+    sound('flip');
   }
 
   function duplicateSelected() {
@@ -813,18 +911,53 @@ export function TablePage({
         <label className="bg-picker">
           Surface
           <select value={table.background} onChange={(e) => setBackground(e.target.value)}>
-            <option value="#4a5b4f">Felt green</option>
-            <option value="#2f4858">Blue felt</option>
+            <option value="#15372a">Deep felt green</option>
+            <option value="#1f3a52">Blue felt</option>
+            <option value="#5a2b2b">Red felt</option>
             <option value="#7a5c3f">Wood</option>
             <option value="#22262b">Dark</option>
             <option value="#e8e3d8">Light</option>
+            <option value="#ffffff">Custom…</option>
           </select>
         </label>
+        <button
+          type="button"
+          className="tips-toggle"
+          aria-pressed={soundOn}
+          onClick={() => {
+            const next = !soundOn;
+            setSoundOn(next);
+            setSoundMuted(!next);
+            void setSetting('tableSound', next);
+          }}
+          title={soundOn ? 'Table sounds on' : 'Table sounds off'}
+        >
+          Sound {soundOn ? 'on' : 'off'}
+        </button>
+        <button
+          type="button"
+          className="tips-toggle"
+          aria-pressed={snapOn}
+          onClick={() => {
+            const next = !snapOn;
+            setSnapOn(next);
+            void setSetting('tableSnap', next);
+          }}
+          title="Cards line up with an invisible grid when you drop them near one"
+        >
+          Snap {snapOn ? 'on' : 'off'}
+        </button>
         <button type="button" className="btn btn-secondary" onClick={resetTable}>
           Clear table
         </button>
         <span className="save-status" aria-live="polite">{saveStatus || 'Synced'}</span>
       </header>
+
+      <div className="table-toolbar-notes">
+        <Coach
+          text="Sound plays the riffle when you shuffle, the snap when a card flips and the thwip when cards are dealt. Snap makes a card line up with the grid — or with a card it is already near — but only if it is already close."
+        />
+      </div>
 
       <div className="table-main">
         <aside className={`tray ${trayOpen ? '' : 'tray-closed'}`}>
@@ -842,18 +975,28 @@ export function TablePage({
               <Coach
                 text="Launch a deck and it appears as a face-down stack. Drag the top card off it to draw, or hold a stack briefly and drag to carry the whole deck."
               />
-              {decks.map((deck) => (
-                <div key={deck.id} className="tray-deck">
-                  <div>
-                    <strong>{deck.name}</strong>
-                    <span className="muted"> · {deckCardCount(deck)} cards</span>
+              {decks.map((deck) => {
+                const thumb = deckThumbs.get(deck.id);
+                return (
+                  <div key={deck.id} className="tray-deck">
+                    <div className="tray-deck-body">
+                      <div>
+                        <strong>{deck.name}</strong>
+                        <span className="muted"> · {deckCardCount(deck)} cards</span>
+                      </div>
+                      <span className="muted tray-deck-back">{thumb ? thumb.label : 'no cards yet'}</span>
+                    </div>
+                    {thumb ? (
+                      <img className="tray-deck-thumb" src={thumb.url} alt={`${deck.name} card back`} />
+                    ) : (
+                      <span className="back-none">no cards</span>
+                    )}
+                    <button type="button" className="btn btn-primary" onClick={() => launch(deck)}>
+                      Launch
+                    </button>
                   </div>
-                  {deck.defaultBackDesign && <BackChip design={deck.defaultBackDesign} label="back" />}
-                  <button type="button" className="btn btn-primary" onClick={() => launch(deck)}>
-                    Launch
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </aside>
@@ -866,28 +1009,31 @@ export function TablePage({
           onPointerUp={handleCanvasPointerUp}
         >
           <div
-            className="table-world"
+            className={`table-world ${snapOn ? 'grid-on' : ''}`}
             style={{
               transform: `translate(${table.camera.x}px, ${table.camera.y}px) scale(${table.camera.zoom})`,
-              background: table.background
+              backgroundColor: table.background
             }}
           >
             {table.objects.map((object) => {
               const top = object.cardInstances[object.cardInstances.length - 1];
               const card = top ? cards.get(top.cardDefinitionId) : undefined;
+              const deck = object.sourceDeckId ? decks.find((d) => d.id === object.sourceDeckId) : undefined;
               const { w, h } = cardSize(card);
-              const url = top ? faces.get(`${top.cardDefinitionId}:${top.face}`) ?? '' : '';
+              const url = card ? renderFace(card, top.face, deck) : '';
               const isStack = object.type === 'stack';
               const layers = Math.min(3, Math.max(0, object.cardInstances.length - 1));
+              const animation = animations.get(object.id);
               return (
                 <div
                   key={object.id}
-                  className={`table-object ${object.id === selectedId ? 'selected' : ''} ${isStack ? 'stack' : ''} ${object.id === grabbingId ? 'grabbing' : ''}`}
+                  className={`table-object ${object.id === selectedId ? 'selected' : ''} ${isStack ? 'stack' : ''} ${object.id === grabbingId ? 'grabbing' : ''} ${animation ? `anim-${animation}` : ''}`}
                   style={{
                     left: object.x - w / 2,
                     top: object.y - h / 2,
                     width: w,
                     height: h,
+                    ['--rot' as string]: `${object.rotationDeg}deg`,
                     transform: `rotate(${object.rotationDeg}deg)`,
                     zIndex: object.z + 1
                   }}
@@ -897,7 +1043,10 @@ export function TablePage({
                   onDoubleClick={() => {
                     setSelectedId(object.id);
                     const current = tableRef.current;
-                    if (current) mutate(current.objects.map((o) => (o.id === object.id ? flipTop(o) : o)));
+                    if (current) {
+                      mutate(current.objects.map((o) => (o.id === object.id ? flipTop(o) : o)));
+                      sound('flip');
+                    }
                   }}
                   onContextMenu={(e) => openContextMenu(e, object)}
                 >
@@ -952,7 +1101,7 @@ export function TablePage({
               >
                 <strong>{name}{isStack ? ` · ${object.cardInstances.length} cards` : ''}</strong>
                 <div className="context-menu-actions">
-                  <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects) => objects.map((x) => (x.id === menu.id ? flipTop(x) : x)))}>
+                  <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects) => objects.map((x) => (x.id === menu.id ? flipTop(x) : x)), 'flip')}>
                     Flip top
                   </button>
                   <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects) => objects.map((x) => (x.id === menu.id ? rotateObject(x, 90) : x)))}>
@@ -960,16 +1109,16 @@ export function TablePage({
                   </button>
                   {isStack ? (
                     <>
-                      <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects, o) => shuffleStack(o, objects))}>
+                      <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects, o) => shuffleStack(o, objects), 'shuffle')}>
                         Shuffle
                       </button>
-                      <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects, o) => drawFromStack(o, objects, { faceUp: drawFaceUp }))}>
+                      <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects, o) => drawFromStack(o, objects, { faceUp: drawFaceUp }), 'draw')}>
                         Draw 1
                       </button>
-                      <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects, o) => dealFromStack(o, objects, 3, { faceUp: drawFaceUp }))}>
+                      <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects, o) => dealFromStack(o, objects, 3, { faceUp: drawFaceUp }), 'deal')}>
                         Draw 3
                       </button>
-                      <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects, o) => gatherInto(o, objects, 170))}>
+                      <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects, o) => gatherInto(o, objects, 170), 'gather')}>
                         Gather
                       </button>
                     </>

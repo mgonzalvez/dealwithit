@@ -1,0 +1,175 @@
+/* ===== Table felt, card physics and micro-animations ===== */
+
+.table-toolbar-notes {
+  padding: 8px 14px 0;
+}
+
+.table-world {
+  position: absolute;
+  width: 1600px;
+  height: 1000px;
+  transform-origin: 0 0;
+  /* Felt is not a flat colour: it has fuzz, a lighter centre where the light
+     hits, and a darker rim. The base colour comes from the table's settings. */
+  background-image:
+    radial-gradient(120% 90% at 50% 32%, rgba(255, 255, 255, 0.11), rgba(0, 0, 0, 0.18) 62%, rgba(0, 0, 0, 0.34) 100%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.05) 0 1px, transparent 1px 4px),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23f)' opacity='0.18'/%3E%3C/svg%3E");
+  background-size: 100% 100%, 100% 100%, 100% 100%, 180px 180px;
+  box-shadow: inset 0 0 90px rgba(0, 0, 0, 0.35);
+}
+
+/* Faint guide so the "invisible" grid is at least suggestively visible. */
+.table-world.grid-on::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 127px 178px;
+  pointer-events: none;
+}
+
+/* --- Card faces --- */
+.table-object {
+  background: #f6f1e7;
+  border: 1px solid #b9b3a4;
+  border-radius: 8px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+  cursor: grab;
+  transition: box-shadow 140ms ease;
+}
+
+/* A stack looks like a pile of cards: the layers underneath are slightly
+   offset and each has its own edge shadow. */
+.stack-edge {
+  position: absolute;
+  inset: 0;
+  background: #d8d2c4;
+  border: 1px solid #b9b3a4;
+  border-radius: 8px;
+}
+
+/* --- Shuffle: the pack jitters and the layers fan out, then square up --- */
+.table-object.anim-shuffle {
+  animation: riffle 700ms ease-in-out;
+}
+
+@keyframes riffle {
+  0%,
+  100% {
+    transform: rotate(var(--rot, 0deg));
+  }
+  14% {
+    transform: rotate(calc(var(--rot, 0deg) - 3deg)) translate(-14px, -9px) scale(1.02);
+  }
+  32% {
+    transform: rotate(calc(var(--rot, 0deg) + 2.5deg)) translate(12px, 7px) scale(1.01);
+  }
+  52% {
+    transform: rotate(calc(var(--rot, 0deg) - 2deg)) translate(-9px, 11px);
+  }
+  72% {
+    transform: rotate(calc(var(--rot, 0deg) + 1.4deg)) translate(7px, -5px);
+  }
+}
+
+.table-object.anim-shuffle .stack-edge-1 {
+  animation: fan1 700ms ease-in-out;
+}
+.table-object.anim-shuffle .stack-edge-2 {
+  animation: fan2 700ms ease-in-out;
+}
+.table-object.anim-shuffle .stack-edge-3 {
+  animation: fan3 700ms ease-in-out;
+}
+
+@keyframes fan1 {
+  0%,
+  100% {
+    transform: translate(-4px, -4px);
+  }
+  40% {
+    transform: translate(-14px, -12px);
+  }
+}
+
+@keyframes fan2 {
+  0%,
+  100% {
+    transform: translate(-8px, -8px);
+  }
+  45% {
+    transform: translate(-22px, -19px);
+  }
+}
+
+@keyframes fan3 {
+  0%,
+  100% {
+    transform: translate(-12px, -12px);
+  }
+  50% {
+    transform: translate(-30px, -26px);
+  }
+}
+
+/* --- Dealt / placed cards land with a small drop --- */
+.table-object.anim-dealt {
+  animation: dropIn 300ms ease-out;
+}
+
+@keyframes dropIn {
+  0% {
+    transform: rotate(var(--rot, 0deg)) translate(0, -22px) scale(1.05);
+    opacity: 0.7;
+    box-shadow: 0 14px 26px rgba(0, 0, 0, 0.4);
+  }
+  100% {
+    transform: rotate(var(--rot, 0deg)) translate(0, 0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Cards sit on the felt, they do not float: a warmer, wider shadow. */
+.table-object.stack {
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.38);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .table-object.anim-shuffle,
+  .table-object.anim-dealt,
+  .table-object.anim-shuffle .stack-edge {
+    animation: none;
+  }
+}
+
+/* --- Tray thumbnails --- */
+.tray-deck {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.tray-deck-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 140px;
+}
+
+.tray-deck-thumb {
+  width: 58px;
+  height: 82px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-card);
+  object-fit: cover;
+}
+
+.tray-deck-back {
+  font-size: 12px;
+}
