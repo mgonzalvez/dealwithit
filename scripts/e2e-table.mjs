@@ -99,6 +99,24 @@ try {
   const creamish = pixels && pixels[0] > 235 && pixels[1] > 225 && pixels[2] > 205;
   check('stack shows the real card back', pixels !== null && !creamish, pixels ? pixels.join(',') : 'no image');
 
+  // The pile's count badge must be readable, not buried under the top card.
+  const badge = await page.evaluate(() => {
+    const badgeEl = document.querySelector('.table-object.stack .count-badge');
+    if (!badgeEl) return null;
+    const r = badgeEl.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return {
+      text: badgeEl.textContent,
+      readable: hit === badgeEl,
+      hit: hit ? `${hit.tagName}.${hit.className}` : 'nothing'
+    };
+  });
+  check(
+    'the stack count badge sits on top of the pile',
+    badge !== null && badge.readable,
+    badge ? `${badge.text} cards, top element: ${badge.hit}` : 'no badge'
+  );
+
   // Pick up / peel: dragging the top card off a stack makes a new object.
   const before = await objectCount();
   let mark = await audio();

@@ -84,6 +84,19 @@
   display: block;
 }
 
+/* The count badge sits on top of the pile, not underneath it: the card face
+   has an explicit z-index, so anything that should read as "stuck on" the
+   stack needs a higher one. */
+.count-badge {
+  z-index: 3;
+  right: -8px;
+  top: -8px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  line-height: 1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+
 /* --- Shuffle: two halves of the pack counter-rotate like opposing propellers
    (the Tabletop Simulator shorthand for a riffle). The whole back stays
    underneath, so the pack never looks cut open. 500 ms. --- */
