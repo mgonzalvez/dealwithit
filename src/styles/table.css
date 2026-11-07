@@ -4,19 +4,25 @@
   padding: 8px 14px 0;
 }
 
+/* The felt is the whole table: it fills the viewport, so there is no visible
+   edge to bump into when you pan. The material texture lives on the canvas
+   (viewport-fixed); the cards live on the transformed world layer. */
 .table-world {
   position: absolute;
-  width: 1600px;
-  height: 1000px;
+  inset: 0;
   transform-origin: 0 0;
-  /* Every surface gets the same light: brighter where it hits the middle,
-     darker toward the rim. The material texture is layered on top. */
+}
+
+/* Every surface gets the same light: brighter where it hits the middle,
+   darker toward the rim. The material texture is layered on top. */
+.table-canvas.surface-felt,
+.table-canvas.surface-wood,
+.table-canvas.surface-plain {
   background-image: radial-gradient(120% 90% at 50% 32%, rgba(255, 255, 255, 0.10), rgba(0, 0, 0, 0.16) 62%, rgba(0, 0, 0, 0.30) 100%);
-  box-shadow: inset 0 0 90px rgba(0, 0, 0, 0.32);
 }
 
 /* Felt: a very subtle fuzz plus a fine weave. Not a checkerboard. */
-.table-world.surface-felt {
+.table-canvas.surface-felt {
   background-image:
     radial-gradient(120% 90% at 50% 32%, rgba(255, 255, 255, 0.10), rgba(0, 0, 0, 0.16) 62%, rgba(0, 0, 0, 0.30) 100%),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23f)' opacity='0.10'/%3E%3C/svg%3E");
@@ -24,7 +30,7 @@
 }
 
 /* Wood: grain lines rather than fuzz. */
-.table-world.surface-wood {
+.table-canvas.surface-wood {
   background-image:
     radial-gradient(120% 90% at 50% 32%, rgba(255, 255, 255, 0.09), rgba(0, 0, 0, 0.18) 62%, rgba(0, 0, 0, 0.32) 100%),
     repeating-linear-gradient(92deg, rgba(0, 0, 0, 0.18) 0 2px, transparent 2px 11px),
@@ -33,20 +39,102 @@
 }
 
 /* Flat surfaces (dark, light) keep only the lighting. */
-.table-world.surface-plain {
+.table-canvas.surface-plain {
   background-image: radial-gradient(120% 90% at 50% 32%, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.10) 62%, rgba(0, 0, 0, 0.20) 100%);
 }
 
-/* Faint guide so the "invisible" grid is at least suggestively visible. */
+/* Faint guide so the "invisible" grid is at least suggestively visible. It
+   extends far beyond the viewport because the table has no edges. */
 .table-world.grid-on::after {
   content: '';
   position: absolute;
-  inset: 0;
+  inset: -6000px;
   background-image:
     linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
     linear-gradient(0deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
-  background-size: 127px 178px;
+  background-size: var(--grid-x, 127px) var(--grid-y, 178px);
   pointer-events: none;
+}
+
+/* ===== Focus mode: the felt takes the screen ===== */
+
+body.table-focus .app-shell {
+  height: 100dvh;
+  min-height: 100dvh;
+}
+
+body.table-focus main {
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+}
+
+body.table-focus .footer {
+  display: none;
+}
+
+body.table-focus .app-header.is-focus {
+  padding: 6px 12px;
+}
+
+body.table-focus .app-header.is-focus .brand-copy,
+body.table-focus .app-header.is-focus .header-nav,
+body.table-focus .app-header.is-focus .tools-menu {
+  display: none;
+}
+
+/* There are no coach tips to show once the panels are gone. */
+body.table-focus .app-header.is-focus .tips-toggle:not(.focus-toggle):not(.sound-toggle) {
+  display: none;
+}
+
+body.table-focus .table-page {
+  height: 100%;
+  gap: 8px;
+}
+
+body.table-focus .table-toolbar,
+body.table-focus .table-toolbar-notes,
+body.table-focus .tray {
+  display: none;
+}
+
+body.table-focus .table-main {
+  flex: 1;
+  min-height: 0;
+  gap: 0;
+}
+
+body.table-focus .table-canvas {
+  flex: 1;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* Compact controls that only appear in focus mode. */
+.focus-panel {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 40;
+  max-width: min(460px, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--surface-solid);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+
+.focus-panel-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
 }
 
 /* --- Card faces --- */

@@ -40,6 +40,7 @@ export function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [tipsEnabled, setTipsEnabled] = useState(true);
   const [soundOn, setSoundOn] = useState(true);
+  const [focus, setFocus] = useState(false);
   const [tourStep, setTourStep] = useState<number | null>(null);
 
   const navigate = (hash: string) => {
@@ -76,7 +77,15 @@ export function App() {
       setSoundOn(on);
       setSoundMuted(!on);
     });
+    void getSetting('tableFocus').then((stored) => setFocus(stored === true));
   }, []);
+
+  // Focus mode gives the felt the whole screen; the app frame gets out of the way.
+  useEffect(() => {
+    const isFocus = focus && route.area === 'table';
+    document.body.classList.toggle('table-focus', isFocus);
+    return () => document.body.classList.remove('table-focus');
+  }, [focus, route.area]);
 
   async function ensureTourProject(): Promise<string> {
     const projects = await listProjects();
@@ -129,9 +138,15 @@ export function App() {
     void setSetting('sound', next);
   }
 
+  function toggleFocus() {
+    const next = !focus;
+    setFocus(next);
+    void setSetting('tableFocus', next);
+  }
+
   return (
     <div className="app-shell">
-      <header className="app-header">
+      <header className={`app-header ${focus && route.area === 'table' ? 'is-focus' : ''}`}>
         <div className="header-inner">
           <a className="brand" href="#/library">
             <span className="brand-mark" aria-hidden="true">
@@ -191,7 +206,16 @@ export function App() {
             </details>
             <button
               type="button"
-              className="tips-toggle"
+              className="tips-toggle focus-toggle"
+              aria-pressed={focus}
+              onClick={toggleFocus}
+              title={focus ? 'Show the full interface' : 'Give the table the whole screen'}
+            >
+              {focus ? 'Exit focus' : 'Focus table'}
+            </button>
+            <button
+              type="button"
+              className="tips-toggle sound-toggle"
               aria-pressed={soundOn}
               onClick={toggleSound}
               title={soundOn ? 'Mute the table sounds' : 'Play the table sounds'}
@@ -231,7 +255,9 @@ export function App() {
           {route.area === 'workshop' && (
             <WorkshopPage projectId={route.projectId} navigate={navigate} initialTab={route.tab} />
           )}
-          {route.area === 'table' && <TablePage projectId={route.projectId} navigate={navigate} />}
+          {route.area === 'table' && (
+            <TablePage projectId={route.projectId} navigate={navigate} focus={focus} onToggleFocus={toggleFocus} />
+          )}
         </TipsContext.Provider>
       </main>
       {tourStep !== null && (

@@ -97,5 +97,18 @@ export interface Project {
 }
 
 export const SCHEMA_VERSION = 1;
+
+/**
+ * The felt is endless: there is no visible edge, so cards can live anywhere.
+ * TABLE_WIDTH / TABLE_HEIGHT are only the default working area (where a fresh
+ * table starts), and WORLD_LIMIT keeps coordinates from drifting into the
+ * absurd while still leaving room for a very large spread.
+ */
 export const TABLE_WIDTH = 1600;
 export const TABLE_HEIGHT = 1000;
+export const WORLD_LIMIT = 6000;
+
+/** Keep a table position inside the working area without hard edges. */
+export function clampWorld(value: number): number {
+  return Math.min(WORLD_LIMIT, Math.max(-WORLD_LIMIT, value));
+}

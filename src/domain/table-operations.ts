@@ -1,5 +1,5 @@
 import { dealN, shuffleInstances } from './deck-operations';
-import { CardInstance, TableObject, TABLE_HEIGHT, TABLE_WIDTH } from './models';
+import { CardInstance, clampWorld, TableObject, TABLE_HEIGHT, TABLE_WIDTH } from './models';
 
 /**
  * Pure table operations. Every function takes state and returns new state;
@@ -19,9 +19,8 @@ export function rotateObject(object: TableObject, deg: number): TableObject {
 }
 
 export function moveObject(object: TableObject, x: number, y: number): TableObject {
-  const clampedX = Math.min(Math.max(x, 0), TABLE_WIDTH);
-  const clampedY = Math.min(Math.max(y, 0), TABLE_HEIGHT);
-  return { ...object, x: clampedX, y: clampedY };
+  // No table edge to bump against — only a generous sanity limit.
+  return { ...object, x: clampWorld(x), y: clampWorld(y) };
 }
 
 /** Launch a deck recipe onto the table as one face-down stack. */
@@ -155,8 +154,8 @@ export function duplicateObject(objects: TableObject[], id: string, offset = 60)
     {
       ...source,
       id: crypto.randomUUID(),
-      x: Math.min(TABLE_WIDTH, source.x + offset),
-      y: Math.min(TABLE_HEIGHT, source.y + offset),
+      x: clampWorld(source.x + offset),
+      y: clampWorld(source.y + offset),
       z: source.z + 1,
       cardInstances: source.cardInstances.map((instance) => ({
         ...instance,
@@ -199,8 +198,9 @@ export function returnToDeck(objects: TableObject[], obj: TableObject): TableObj
     {
       id: crypto.randomUUID(),
       type: 'stack',
-      x: TABLE_WIDTH / 2,
-      y: TABLE_HEIGHT / 2,
+      // Reassemble where the cards were, not at some fixed table centre.
+      x: clampWorld(obj.x),
+      y: clampWorld(obj.y),
       z: 0,
       rotationDeg: 0,
       cardInstances: obj.cardInstances,

@@ -42,10 +42,13 @@ and other standard games are playable from the first visit.
 
 - **Felt surface** — deep felt green by default (blue felt, red felt, wood, dark
   and light options too), with a subtle fuzz, a lighter centre and a darker rim.
+  The felt is the whole table: it fills the window, so panning never runs into
+  an edge. Cards can be placed anywhere.
 - **Sounds** — synthesised with the Web Audio API (no audio files, so nothing to
   download and nothing that breaks offline use): a riffle when you shuffle, a
   snap when a card flips, a soft thwip as cards are dealt, a clack when a card
-  joins a stack. Toggle **Sound on/off** in the table toolbar.
+  joins a stack, a rustle when you pick a card up. Toggle **Sound on/off** in the
+  header.
 - **Shuffle animation** — the pack splits into two halves that counter-rotate
   like opposing propellers (the Tabletop Simulator shorthand for a riffle), for
   500 ms.
@@ -57,6 +60,11 @@ and other standard games are playable from the first visit.
   further off stays exactly where you put it. Faint guide lines appear only
   while a card is in your hand.
 - **Cut** — split a stack in two from the stack menu, like cutting a real deck.
+- **Focus mode** — **Focus table** in the header hides the toolbar, the tips and
+  the deck tray and lets the felt fill the whole window (handy on a tablet). The
+  floating **Controls** panel next to the zoom buttons still has Undo, Redo,
+  Draw direction, Surface, Snap, Clear table, Library, Workshop and a Launch
+  button for every deck. **Esc** or **Exit focus** brings the interface back.
 
 ## Setup
 

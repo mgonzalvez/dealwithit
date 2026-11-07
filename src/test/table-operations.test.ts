@@ -18,7 +18,7 @@ import {
   sendToBack,
   shuffleStack
 } from '../domain/table-operations';
-import { CardInstance, TableObject } from '../domain/models';
+import { CardInstance, TableObject, WORLD_LIMIT } from '../domain/models';
 
 function stack(n: number): TableObject {
   return {
@@ -58,11 +58,15 @@ describe('rotation and movement', () => {
     expect(normalizeRotation(450)).toBe(90);
   });
 
-  it('moveObject clamps to the table bounds', () => {
+  it('moveObject has no table edge, but keeps coordinates sane', () => {
     const obj = { id: 'o1', type: 'card' as const, x: 0, y: 0, z: 0, rotationDeg: 0, cardInstances: [] };
-    expect(moveObject(obj, -50, 50).x).toBe(0);
-    expect(moveObject(obj, 9999, 9999).x).toBe(1600);
-    expect(moveObject(obj, 9999, 9999).y).toBe(1000);
+    // The felt is endless: negative and far-out positions are fine.
+    expect(moveObject(obj, -50, 50).x).toBe(-50);
+    expect(moveObject(obj, 2500, 3000).x).toBe(2500);
+    expect(moveObject(obj, 2500, 3000).y).toBe(3000);
+    // Only absurd distances are clipped, so a lost card can never drift forever.
+    expect(moveObject(obj, 99999, -99999).x).toBe(WORLD_LIMIT);
+    expect(moveObject(obj, 99999, -99999).y).toBe(-WORLD_LIMIT);
   });
 
   it('rotateObject adds rotation and normalizes', () => {

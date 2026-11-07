@@ -97,6 +97,35 @@ A one-click **"Play a standard 52-card deck"** in the Library creates a real pok
 | First-sound unlock | Browsers refuse audio before a gesture | ✅ AudioContext primed on the first pointer event app-wide |
 | Squaring-up tap animation | A visual "tap" when a stack is gathered | ⬜ Nice-to-have |
 | Card backs for the standard deck variants | Red/blue classic backs | ⬜ Add a back selector for the standard deck |
+| Deeper "lift" shadow while dragging | Cards rise off the felt | 🔶 Grab shadow exists; could be more pronounced |
+
+---
+
+## 10. No table edges — ✅
+
+**Asked for:** "I prefer not to have defined boundaries for the table edges… dragging the table around doesn't show the edges."
+
+- The felt is painted on the canvas (the viewport), not on a 1600×1000 world rectangle, so panning never reveals a boundary.
+- Cards can live anywhere within ±6000 units (`WORLD_LIMIT`) — about 47 cards across — which is effectively unlimited for a card table but keeps a stray drag from losing a card forever.
+- Decks launch at the middle of the current view rather than a fixed spot.
+- The camera re-centres on the cards when the window is resized, the tablet rotates, or focus mode is toggled.
+
+**Decisions:** no rails, no hard edge, no scrolling "table" metaphor — the felt simply is the screen.
+
+---
+
+## 11. Focus mode (full-screen table) — ✅
+
+**Asked for:** an option to go full screen on a tablet or give the table more room on a computer by minimising the UI.
+
+- Header button **Focus table** / **Exit focus**; **Esc** also exits.
+- In focus mode: the header becomes a slim bar (brand mark, Sound, theme), the toolbar, the coach tip and the deck tray are hidden, and the canvas runs edge-to-edge.
+- A floating **Controls** panel beside the zoom buttons carries Undo, Redo, Draw face up/down, Surface, Snap, Clear table, Library, Workshop and a Launch button per deck.
+- Preference persists (`tableFocus`).
+
+**Decisions:** keep Sound and theme reachable in focus mode; hide Tips (there is nothing to coach). Not using the browser `requestFullscreen()` API — iPad Safari does not support it and focus mode already uses the whole viewport.
+
+**Later ideas:** an option to hide the slim header entirely; a bottom deck strip that floats over the felt; auto-focus when the viewport is tablet-sized.
 
 ---
 
@@ -117,3 +146,5 @@ A one-click **"Play a standard 52-card deck"** in the Library creates a real pok
 6. Snap off → nothing snaps, no guide lines.
 7. Right-click a stack → **Cut** → two piles, each with its own back.
 8. Workshop → choose a cream back → Table tray thumbnail and face-down stack both show cream.
+9. Drag a stack well past where the old 1600×1000 board ended → it stays put; **Fit cards** brings it back into view.
+10. Header → **Focus table** → the felt fills the window, toolbar/tips/tray vanish, **Controls** still has Undo, Surface and Launch; **Esc** restores everything.

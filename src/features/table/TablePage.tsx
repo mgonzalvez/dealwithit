@@ -17,8 +17,7 @@ import {
   CardDefinition,
   DeckDefinition,
   Project,
-  TABLE_HEIGHT,
-  TABLE_WIDTH,
+  clampWorld,
   TableObject,
   TableState
 } from '../../domain/models';
@@ -87,10 +86,14 @@ interface MenuState {
  */
 export function TablePage({
   projectId,
-  navigate
+  navigate,
+  focus = false,
+  onToggleFocus
 }: {
   projectId?: string;
   navigate: (hash: string) => void;
+  focus?: boolean;
+  onToggleFocus?: () => void;
 }) {
   const [project, setProject] = useState<Project | null>(null);
   const [decks, setDecks] = useState<DeckDefinition[]>([]);
@@ -100,6 +103,7 @@ export function TablePage({
   const [peek, setPeek] = useState<{ url: string; x: number; y: number } | null>(null);
   const [saveStatus, setSaveStatus] = useState('');
   const [trayOpen, setTrayOpen] = useState(true);
+  const [panelOpen, setPanelOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [drawFaceUp, setDrawFaceUp] = useState(false);
   const [menu, setMenu] = useState<MenuState | null>(null);
@@ -279,6 +283,26 @@ export function TablePage({
     }
   }, [table, loading]);
 
+  // Entering or leaving focus mode changes the size of the felt; keep the
+  // cards in the middle of the view.
+  useEffect(() => {
+    recenter();
+  }, [focus]);
+
+  // Resizing the window (or rotating a tablet) should not lose the cards.
+  useEffect(() => {
+    let timer: number | null = null;
+    const onResize = () => {
+      if (timer) clearTimeout(timer);
+      timer = window.setTimeout(recenter, 250);
+    };
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+
   // Debounced autosave.
   useEffect(() => {
     if (!table) return;
@@ -298,13 +322,22 @@ export function TablePage({
     return () => clearTimeout(timer);
   }, [table]);
 
-  // Keyboard: Space = pan mode, Ctrl/Cmd+Z = undo, Ctrl/Cmd+Shift+Z = redo.
+  // Keyboard: Space = pan mode, Ctrl/Cmd+Z = undo, Ctrl/Cmd+Shift+Z = redo,
+  // Esc = close the menu, then the controls panel, then leave focus mode.
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       const target = event.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') return;
       if (event.key === 'Escape') {
-        setMenu(null);
+        if (menu) {
+          setMenu(null);
+          return;
+        }
+        if (panelOpen) {
+          setPanelOpen(false);
+          return;
+        }
+        if (focus) onToggleFocus?.();
         return;
       }
       if (event.key === ' ') {
@@ -326,7 +359,7 @@ export function TablePage({
       document.removeEventListener('keydown', onKeyDown);
       document.removeEventListener('keyup', onKeyUp);
     };
-  }, []);
+  }, [focus, panelOpen, onToggleFocus]);
 
   function snapshot() {
     const current = tableRef.current;
@@ -441,6 +474,33 @@ export function TablePage({
     return { minX, minY, maxX, maxY };
   }
 
+  /** Keep whatever the player is looking at centred when the table resizes. */
+  function recenter() {
+    const canvas = canvasRef.current;
+    const current = tableRef.current;
+    if (!canvas || !current) return;
+    const bounds = contentBounds();
+    const zoom = current.camera.zoom;
+    const cx = bounds ? (bounds.minX + bounds.maxX) / 2 : 0;
+    const cy = bounds ? (bounds.minY + bounds.maxY) / 2 : 0;
+    animateCamera({
+      x: canvas.clientWidth / 2 - cx * zoom,
+      y: canvas.clientHeight / 2 - cy * zoom,
+      zoom
+    });
+  }
+
+  /** World coordinates at the middle of what the player is currently looking at. */
+  function viewCentre(): { x: number; y: number } {
+    const canvas = canvasRef.current;
+    const camera = tableRef.current?.camera ?? { x: 0, y: 0, zoom: 1 };
+    if (!canvas) return { x: 0, y: 0 };
+    return {
+      x: (canvas.clientWidth / 2 - camera.x) / camera.zoom,
+      y: (canvas.clientHeight / 2 - camera.y) / camera.zoom
+    };
+  }
+
   /** Fit the camera to the cards on the table (or a comfortable default). */
   function fitView(animate = true) {
     const canvas = canvasRef.current;
@@ -448,12 +508,8 @@ export function TablePage({
     const rect = canvas.getBoundingClientRect();
     const bounds = contentBounds();
     if (!bounds) {
-      const zoom = 1;
-      const target = {
-        x: rect.width / 2 - (TABLE_WIDTH / 2) * zoom,
-        y: rect.height / 2 - (TABLE_HEIGHT / 2) * zoom,
-        zoom
-      };
+      // Nothing on the felt yet: put the world origin in the middle of the view.
+      const target = { x: rect.width / 2, y: rect.height / 2, zoom: 1 };
       if (animate) animateCamera(target);
       else setCamera(target);
       return;
@@ -674,8 +730,10 @@ export function TablePage({
     const current = tableRef.current;
     if (!current) return;
     drag.moved = true;
-    const rawX = Math.min(TABLE_WIDTH, Math.max(0, world.x + (drag.dx ?? 0)));
-    const rawY = Math.min(TABLE_HEIGHT, Math.max(0, world.y + (drag.dy ?? 0)));
+    // The felt has no edge, so cards can go anywhere; only a sanity limit stops
+    // a stray drag from sending a card to the stratosphere.
+    const rawX = clampWorld(world.x + (drag.dx ?? 0));
+    const rawY = clampWorld(world.y + (drag.dy ?? 0));
     let x = rawX;
     let y = rawY;
     if (snapOn) {
@@ -773,12 +831,15 @@ export function TablePage({
     const current = tableRef.current;
     if (!current) return;
     const wasEmpty = current.objects.length === 0;
+    // Drop the pack where the player is looking, not at a fixed spot on an
+    // imaginary 1600x1000 board.
+    const centre = viewCentre();
     const stack = launchDeck(
       deck.entries,
       deck.id,
       deck.name,
-      TABLE_WIDTH / 2,
-      TABLE_HEIGHT / 2 - (current.objects.length % 4) * 90
+      centre.x + (current.objects.length % 4) * 70,
+      centre.y - (current.objects.length % 4) * 70
     );
     mutate([...current.objects, stack]);
     sound('place');
@@ -1063,17 +1124,17 @@ export function TablePage({
         </aside>
 
         <div
-          className="table-canvas"
+          className={`table-canvas ${surfaceClass(table.background)}`}
           ref={canvasRef}
+          style={{ backgroundColor: table.background }}
           onPointerDown={handleCanvasPointerDown}
           onPointerMove={handleCanvasPointerMove}
           onPointerUp={handleCanvasPointerUp}
         >
           <div
-            className={`table-world ${snapOn && draggingId ? 'grid-on' : ''} ${surfaceClass(table.background)}`}
+            className={`table-world ${snapOn && draggingId ? 'grid-on' : ''}`}
             style={{
               transform: `translate(${table.camera.x}px, ${table.camera.y}px) scale(${table.camera.zoom})`,
-              backgroundColor: table.background,
               ['--grid-x' as string]: `${gridPitch(draggingId).w}px`,
               ['--grid-y' as string]: `${gridPitch(draggingId).h}px`
             }}
@@ -1147,6 +1208,17 @@ export function TablePage({
           </div>
 
           <div className="zoom-controls">
+            {focus && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setPanelOpen((open) => !open)}
+                aria-expanded={panelOpen}
+                title="Table controls"
+              >
+                Controls
+              </button>
+            )}
             <button type="button" className="btn btn-secondary" onClick={() => fitView()}>
               Fit cards
             </button>
@@ -1160,6 +1232,63 @@ export function TablePage({
               {Math.round(table.camera.zoom * 100)}%
             </span>
           </div>
+
+          {focus && panelOpen && (
+            <div className="focus-panel" role="group" aria-label="Table controls">
+              <div className="focus-panel-row">
+                <button type="button" className="btn btn-secondary" onClick={undo}>Undo</button>
+                <button type="button" className="btn btn-secondary" onClick={redo}>Redo</button>
+                <label className="bg-picker">
+                  Draw
+                  <select value={drawFaceUp ? 'up' : 'down'} onChange={(e) => changeDrawFaceUp(e.target.value)}>
+                    <option value="down">Face-down</option>
+                    <option value="up">Face-up</option>
+                  </select>
+                </label>
+                <label className="bg-picker">
+                  Surface
+                  <select value={table.background} onChange={(e) => setBackground(e.target.value)}>
+                    <option value="#15372a">Deep felt green</option>
+                    <option value="#1f3a52">Blue felt</option>
+                    <option value="#5a2b2b">Red felt</option>
+                    <option value="#7a5c3f">Wood</option>
+                    <option value="#22262b">Dark</option>
+                    <option value="#e8e3d8">Light</option>
+                    <option value="#ffffff">Custom…</option>
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className="tips-toggle"
+                  aria-pressed={snapOn}
+                  onClick={() => {
+                    const next = !snapOn;
+                    setSnapOn(next);
+                    void setSetting('tableSnap', next);
+                  }}
+                >
+                  Snap {snapOn ? 'on' : 'off'}
+                </button>
+                <button type="button" className="btn btn-secondary" onClick={resetTable}>
+                  Clear table
+                </button>
+                <button type="button" className="btn btn-secondary" onClick={() => navigate('#/library')}>
+                  Library
+                </button>
+                <button type="button" className="btn btn-secondary" onClick={() => navigate(`#/workshop/${projectId}`)}>
+                  Workshop
+                </button>
+              </div>
+              <div className="focus-panel-row">
+                {decks.length === 0 && <span className="muted">No decks in this project yet.</span>}
+                {decks.map((deck) => (
+                  <button key={deck.id} type="button" className="btn btn-primary" onClick={() => launch(deck)}>
+                    {deck.name} ({deck.entries.reduce((sum, entry) => sum + entry.quantity, 0)})
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {menu && (() => {
             const object = table.objects.find((o) => o.id === menu.id);

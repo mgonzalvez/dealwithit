@@ -90,7 +90,9 @@ Card Extractor lives at `https://extractor.gonzhome.us` (tools index: `https://g
 - **Performance budgets:** 500 images / 10 decks / 300 instances; ~60 fps with 100 visible objects; no layout reads inside `pointermove`; rAF batching; batched image decoding; lazy-load + thumbnails; never decode all full-res assets at once
 - **Error handling:** per-file failures don't abort batches; graceful handling of corrupted files, empty decks, missing images, quota errors, interrupted imports
 - **Transactional persistence:** canceled imports leave no orphaned definitions/entries
-- **Table defaults:** launched deck = one stack, backs visible (the deck's own back — generated or image), count badge; a proper generic back if none was chosen; table 1600×1000 logical units; default surface deep felt green `#15372a`
+- **Table defaults:** launched deck = one stack, backs visible (the deck's own back — generated or image), count badge above the pile; a proper generic back if none was chosen; default surface deep felt green `#15372a`
+- **No table edges:** the felt is the viewport, not a 1600×1000 board. `TABLE_WIDTH`/`TABLE_HEIGHT` are only the default starting area; positions are clamped to `WORLD_LIMIT` (±6000) via `clampWorld()`. Never reintroduce clamping to the board rectangle.
+- **Focus mode:** the header's **Focus table** button hides the toolbar, tips and tray and lets the felt fill the viewport; Undo/Redo/Draw/Surface/Snap/Clear/Library/Workshop/Launch live in the floating Controls panel. Esc exits. Persisted as `tableFocus`.
 - **Table feel:** sounds are synthesised with the Web Audio API (`src/features/table/sounds.ts`) — never audio files; shuffle uses the 500 ms opposing-propeller animation; snapping is soft (`src/features/table/snap.ts`, tolerance `min(20% of card, 20 units)`) and only shows guide lines while a card is being dragged
 
 ## Non-goals (do NOT build)

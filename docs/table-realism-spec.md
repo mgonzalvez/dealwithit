@@ -2,8 +2,8 @@
 
 **Feature:** make the virtual table feel like a real card table — the surface, the sounds, the way cards shuffle, deal, flip and line up.
 
-**Implemented:** 2026-11-07 (M9) and 2026-11-07 (M10, the built-in standard deck).
-**Files:** `src/features/table/sounds.ts`, `src/features/table/snap.ts`, `src/styles/table.css`, `src/features/workshop/cardRenderer.ts`, `src/domain/table-operations.ts`, `src/domain/standard-deck.ts`, `src/features/library/standardDeck.ts`.
+**Implemented:** 2026-11-07 (M9), 2026-11-07 (M10, the built-in standard deck), 2026-11-07 (M11–M12: interaction fixes, the endless felt and focus mode).
+**Files:** `src/features/table/sounds.ts`, `src/features/table/snap.ts`, `src/styles/table.css`, `src/features/workshop/cardRenderer.ts`, `src/domain/table-operations.ts`, `src/domain/models.ts`, `src/domain/standard-deck.ts`, `src/features/library/standardDeck.ts`, `src/app/App.tsx`.
 
 ---
 
@@ -21,6 +21,14 @@ Default table background is **deep felt green `#15372a`**. Tables saved with the
 | Light | `#e8e3d8` | lighting only |
 
 The lighting is a radial gradient (brighter where the "light" hits, darker toward the rim) plus an inset shadow. There is no table edge/rail, by design.
+
+### The felt is endless
+
+The surface is painted on the **canvas** (which is the viewport), not on the world layer, so panning never reveals an edge. The card layer is a pure transform: `translate(camera) scale(zoom)` with no fixed 1600×1000 rectangle.
+
+`TABLE_WIDTH` / `TABLE_HEIGHT` (1600×1000) survive only as the default starting area. Positions are allowed anywhere within `WORLD_LIMIT = 6000` units in either direction (≈ 47 cards wide), so cards can never be lost to an absurd coordinate, but there is no wall to bump into. `moveObject`, `duplicateObject` and `returnToDeck` clamp to that limit rather than to the old board rectangle. `returnToDeck` now reassembles the cards where they were, not at a fixed table centre.
+
+Cards are launched at the middle of whatever the player is currently looking at (`viewCentre()`), and the camera re-centres on the cards when the window is resized or focus mode is toggled.
 
 Cards sit on the felt: stacks get a wider, warmer shadow than loose cards.
 
@@ -91,10 +99,24 @@ It is deliberately minimalist but immediately recognisable, so a first-time visi
 - `src/test/standard-deck.test.ts` — 6 tests: 52 unique cards, 13 per suit, real card names, red/black suits, correct pip counts, pips inside the card and never overlapping.
 - `src/test/table-operations.test.ts` — cutting a deck (halves, order preserved, deck reference kept) and deal jitter bounded by ±2°.
 - `src/test/sounds.test.ts` — 3 tests against a stub AudioContext that mimics the real one (getter-only `Q`): every sound builds nodes without throwing, the riffle is busier than a single flip, and muting creates nothing.
-- `scripts/e2e-table.mjs` (`npm run test:e2e`) — a headless-Chromium smoke test that starts Vite itself and drives real pointer events: the camera frames the deck, the face-down top card is a real back (not blank stock), dragging peels a card off a stack, holding grabs the whole deck, shuffle riffles and animates, double-click flips, cut and set-down make sounds, and the header Sound toggle silences everything. Exits non-zero on failure.
+- `scripts/e2e-table.mjs` (`npm run test:e2e`) — a headless-Chromium smoke test that starts Vite itself and drives real pointer events: the camera frames the deck, the face-down top card is a real back (not blank stock), the count badge sits on top of the pile, dragging peels a card off a stack, holding grabs the whole deck, shuffle riffles and animates, double-click flips, cut and set-down make sounds, the header Sound toggle silences everything, focus mode fills the viewport and hides the chrome, and the Controls panel still offers decks, surface and undo. Exits non-zero on failure.
 
-## 10. Deliberate non-goals
+## 10. Focus mode (the table gets the screen)
+
+**Why:** on a tablet — or on a desktop monitor that is too small for a big spread — the interface eats the space the cards need.
+
+**How it works:**
+
+- **Focus table** in the header (and **Exit focus** once you are in it). Keyboard: **Esc** closes the context menu, then the Controls panel, then leaves focus mode.
+- The header collapses to a slim bar with just the brand mark, Sound and the theme toggle. Navigation, the "More tools" menu and the Tips toggle are hidden because they have nothing to explain in focus mode.
+- The table toolbar, the coach tip and the deck tray disappear; the canvas goes edge-to-edge (`main` padding 0, no border, no radius).
+- Everything the toolbar held is reachable from the floating **Controls** panel next to the zoom buttons: Undo, Redo, Draw face up/down, Surface, Snap, Clear table, Library, Workshop, and a **Launch** button for every deck.
+- The preference is remembered (`tableFocus` in the settings store), so the table opens the way you left it.
+- Re-centering happens automatically when focus is toggled and when the window is resized or the tablet rotates, so cards never end up stranded off-screen.
+
+## 11. Deliberate non-goals
 
 - No audio assets, no streaming, no volume slider yet.
 - No true two-half interleaving riffle (propeller shorthand is enough for the feel).
 - No rigid snapping, no table rails, no ambient table lighting beyond the felt gradient.
+- No browser `requestFullscreen()`: focus mode already uses the whole viewport, and forcing fullscreen behaves badly in iPad Safari.

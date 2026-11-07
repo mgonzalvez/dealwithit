@@ -45,7 +45,7 @@ export const TOUR_STEPS: TourStep[] = [
     title: 'Play on the table',
     where: 'Table',
     body:
-      'Your deck sits on the felt as a stack showing its real card back. Drag to peel the top card off — or hold a stack briefly, then drag to carry the whole deck. Double-tap to flip a card. The action bar shuffles (with a propeller riffle and a riffle sound), cuts, draws, deals, gathers and changes the felt. Snap makes cards line up with the grid when they are close to it; Sound plays the flip, riffle and deal. Pinch or scroll to zoom, drag empty felt to pan, and Ctrl/Cmd+Z to undo.',
+      'Your deck sits on the felt as a stack showing its real card back. Drag to peel the top card off — or hold a stack briefly, then drag to carry the whole deck. Double-tap to flip a card. The action bar shuffles (with a propeller riffle and a riffle sound), cuts, draws, deals, gathers and changes the felt. Snap makes cards line up with the grid when they are close to it; Sound plays the pickup, flip, riffle and deal. Pinch or scroll to zoom, drag empty felt to pan — the felt has no edge, so spread out as far as you like — and Ctrl/Cmd+Z to undo. Press **Focus table** in the header to hide the panels and give the felt the whole screen.',
   },
   {
     title: 'Save and share your project',

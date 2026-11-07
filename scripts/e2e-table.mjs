@@ -223,6 +223,56 @@ try {
   await page.waitForTimeout(600);
   const muted = delta(mark, await audio());
   check('the header Sound toggle silences the table', muted.bursts === 0 && muted.thuds === 0);
+
+  // Focus mode: the felt fills the screen and the interface chrome disappears.
+  await page.locator('.focus-toggle').click();
+  await page.waitForTimeout(900);
+  const focusState = await page.evaluate(() => {
+    const canvas = document.querySelector('.table-canvas');
+    const rect = canvas.getBoundingClientRect();
+    return {
+      focused: document.body.classList.contains('table-focus'),
+      canvasWidth: Math.round(rect.width),
+      canvasHeight: Math.round(rect.height),
+      viewportWidth: window.innerWidth,
+      toolbarHidden: getComputedStyle(document.querySelector('.table-toolbar')).display === 'none',
+      trayHidden: getComputedStyle(document.querySelector('.tray')).display === 'none'
+    };
+  });
+  check(
+    'focus mode makes the table fill the viewport',
+    focusState.focused && focusState.canvasWidth === focusState.viewportWidth && focusState.canvasHeight > 400,
+    `canvas ${focusState.canvasWidth}x${focusState.canvasHeight} in a ${focusState.viewportWidth}px viewport`
+  );
+  check('focus mode hides the toolbar and the deck tray', focusState.toolbarHidden && focusState.trayHidden);
+
+  const stackVisible = await page.evaluate(() => {
+    const rect = document.querySelector('.table-object.stack').getBoundingClientRect();
+    return rect.left > 0 && rect.top > 0 && rect.right < window.innerWidth && rect.bottom < window.innerHeight;
+  });
+  check('focus mode keeps the cards in view', stackVisible);
+
+  // The Controls panel brings back everything the toolbar used to hold.
+  await page.locator('.zoom-controls button:has-text("Controls")').click();
+  await page.waitForTimeout(300);
+  const panel = await page.evaluate(() => {
+    const el = document.querySelector('.focus-panel');
+    if (!el) return null;
+    return {
+      launch: Boolean(el.querySelector('button.btn-primary')),
+      surface: Boolean(el.querySelector('select')),
+      undo: [...el.querySelectorAll('button')].some((b) => b.textContent === 'Undo')
+    };
+  });
+  check('the focus Controls panel offers decks, surface and undo', panel !== null && panel.launch && panel.surface && panel.undo);
+
+  await page.locator('.focus-toggle').click();
+  await page.waitForTimeout(600);
+  const backToNormal = await page.evaluate(() => ({
+    focused: document.body.classList.contains('table-focus'),
+    toolbarVisible: getComputedStyle(document.querySelector('.table-toolbar')).display !== 'none'
+  }));
+  check('exit focus restores the full interface', !backToNormal.focused && backToNormal.toolbarVisible);
 } finally {
   await browser.close();
   await server.close();
