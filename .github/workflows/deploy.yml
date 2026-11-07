@@ -3,6 +3,7 @@ name: Build and deploy to GitHub Pages
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -20,15 +21,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-      - run: npm ci
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
-      # Root base for the custom domain dealwithit.gonzhome.us.
-      # The repo-subpath preview build (VITE_BASE=/dealwithit/) is covered
-      # by the local/preview workflow until both modes are smoke-tested.
-      - run: VITE_BASE=/ npm run build
+      # Relative base (./) works at both the repo Pages subpath and a custom-domain root.
+      - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
@@ -36,5 +35,10 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/deploy-pages@v4
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

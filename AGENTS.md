@@ -8,7 +8,7 @@
 - **Descriptor:** The Print-and-Play Card Sandbox
 - **Tagline:** Make your decks. Play your cards.
 - **Target URL:** `https://dealwithit.gonzhome.us` (GitHub Pages, custom domain — verify DNS before claiming it resolves)
-- **Suggested repo:** `dealwithit`
+- **Repo:** `dealwithit` → `git@github.com:mgonzalvez/dealwithit.git` (branch `main`, clean as of 2026-11-06)
 - **Canonical spec:** `Deal_With_It_Final_Codex_Build_Spec.md` (Version 3.0 FINAL, 2026-11-01) — read it fully before implementing
 
 ## Tech Stack
@@ -108,19 +108,43 @@ Game rules, scoring, AI, multiplayer, accounts, cloud sync, analytics, ads, DRM,
 npm run lint        # ESLint
 npm run typecheck   # strict TS check
 npm test            # Vitest (74 tests as of 2026-11-02)
-npm run build       # Vite production build (default base /dealwithit/)
-VITE_BASE=/ npm run build  # root-domain build for dealwithit.gonzhome.us
+npm run build       # Vite production build (default relative base "./" — works at any Pages path)
+VITE_BASE=/ npm run build  # only if you need absolute root asset paths
 npm run icons       # regenerate PNG app icons (192/512)
 npm run preview     # preview the built app
 ```
 
-## Repository Layout (suggested)
+## Repository Layout (actual)
 
 ```
 src/
-  app/ components/ domain/ persistence/ integration/ features/ styles/ test/
+  app/            App.tsx, main.tsx (hash router: #/library, #/workshop/<id>[/<tab>], #/table/<id>)
+  components/     ui.tsx (Button, Dialog, Menu, EmptyState)
+  domain/         models.ts, schemas.ts (Zod), card/deck/table-operations.ts, transforms.ts, natural-sort.ts
+  persistence/    db.ts (Dexie, version 1 + version 2), migrations.ts, repositories.ts
+  integration/    card-extractor.ts (fronts/backs pairing adapter)
+  features/
+    library/      LibraryPage.tsx, demo.ts
+    import/       ImportStaging.tsx, AssetBrowser.tsx, pipeline.ts, zipImport.ts, zip-safety.ts, imageMeta.ts
+    workshop/     WorkshopPage.tsx, CardGrid.tsx, CardEditor.tsx, DeckBuilder.tsx, cardRenderer.ts
+    table/        TablePage.tsx
+    decks/        deckIcons.tsx
+    export/       export.ts (.dealwithit.zip round trip)
+    onboarding/   QuickStart.tsx, Tour.tsx (guided step-by-step tour)
+  styles/         styles.css, workshop.css
+  test/           9 Vitest files (74 tests) + fixtures/
 public/
-  deck-icons/      # Fractal Symbols SVGs (CC BY 4.0) for deck icons
-  favicon.svg, manifest.webmanifest, sw.js, icons/
-.github/workflows/deploy.yml
+  deck-icons/     # 24 Fractal Symbols SVGs (CC BY 4.0) for deck icons
+  favicon.svg, manifest.webmanifest, sw.js, icons/, CNAME
+scripts/generate-icons.mjs   # npm run icons
+.github/workflows/deploy.yml # Node 22: npm ci -> lint -> typecheck -> test -> build -> Pages
 ```
+
+Run `npm test`, `npm run lint` and `npm run typecheck` before claiming any change is complete; all three pass as of 2026-11-06.
+
+## Deployment status (verified 2026-11-07)
+
+- Pages is configured as **workflow-built** (`build_type: "workflow"`, source branch `main`), so the site is served from the Actions artifact, not from files committed to the repo.
+- `public/CNAME` still declares `dealwithit.gonzhome.us`; that domain does not resolve until a DNS CNAME record is added at `gonzhome.us`. Until then the working URL is `https://mgonzalvez.github.io/dealwithit/`.
+- Historical failure (fixed 2026-11-07): `npm ci` crashed with npm's "Exit handler never called!" on the deprecated `node-version: 20`, so `eslint` was never installed and the build aborted with exit 127. The workflow now uses Node 22, `npm ci --no-audit --no-fund`, a relative Vite base, and a proper `github-pages` deployment environment.
+- Always verify with `curl -I https://mgonzalvez.github.io/dealwithit/` (expect 200) and `gh run list` (expect a successful deploy) before reporting the site as live.

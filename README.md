@@ -46,10 +46,13 @@ npm run preview    # preview the built app
 
 ### Build modes
 
+The default build uses a **relative base (`./`)**, so one artifact works at both
+the repo subpath and a custom-domain root — no separate builds needed.
+
 | Mode | Base | Command |
 |---|---|---|
-| Custom domain root (`dealwithit.gonzhome.us`) | `/` | `VITE_BASE=/ npm run build` |
-| Repo subpath preview (`mgonzalvez.github.io/dealwithit/`) | `/dealwithit/` | `npm run build` (default) |
+| Anywhere (`mgonzalvez.github.io/dealwithit/` or `dealwithit.gonzhome.us`) | `./` | `npm run build` (default) |
+| Absolute root (only if you need `/assets/...` paths) | `/` | `VITE_BASE=/ npm run build` |
 
 The app uses hash routing (`#/library`, `#/workshop/<id>`, `#/table/<id>`) so
 GitHub Pages deep links never 404.
