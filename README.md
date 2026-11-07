@@ -66,6 +66,7 @@ npm run dev        # local dev server (http://localhost:5173/)
 npm run lint       # ESLint
 npm run typecheck  # strict TypeScript
 npm test           # Vitest (domain logic + schemas)
+npm run test:e2e   # headless-Chromium table smoke test (needs: npx playwright install chromium)
 npm run build      # production build into dist/
 npm run preview    # preview the built app
 ```

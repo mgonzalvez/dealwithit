@@ -30,20 +30,24 @@ Cards sit on the felt: stacks get a wider, warmer shadow than loose cards.
 
 | Action | Sound |
 |---|---|
-| Flip / rotate | snap burst (1900 Hz → 800 Hz) + 150 Hz thud |
-| Shuffle | 12 riffle clicks at random spacing (~0.4 s) then a square-up clack |
-| Deal | swoosh (1600 Hz → 420 Hz) + 120 Hz landing thud, staggered 150 ms per card |
-| Draw (peel off a stack) | short flick |
-| Merge into a stack / gather / cut | clack + thud |
+| Pick a card or stack up | soft two-part rustle of cardboard |
+| Flip / rotate | snap burst (2200 Hz → 900 Hz) + 160 Hz thud |
+| Shuffle | 14 riffle clicks at random spacing (~0.5 s) then a square-up clack + thud |
+| Deal | swoosh (1800 Hz → 420 Hz) + 130 Hz landing thud, staggered 150 ms per card |
+| Draw (peel off a stack) | distinct flick + small thud |
+| Set a card down on the felt | low 110 Hz thud + short scrape |
+| Merge into a stack / gather | clack + thud |
+| Cut | two short clacks + thud |
 
-- **Sound on/off** in the table toolbar, persisted in the settings store (`tableSound`).
-- Master gain 0.42.
+- **Sound on/off** is a global control in the header (next to *Tips*), persisted in the settings store as `sound`. It is not per-table: the table is one sandbox, and a per-table mute would be one more thing to forget.
+- Master gain 0.6.
 - No audio files, so nothing to download and nothing that breaks the offline PWA shell.
-- Browsers require a user gesture before audio can start; the AudioContext is created lazily on the first action, so the first sound plays on your first interaction.
+- Browsers refuse to start audio before a user gesture. The AudioContext is created on the first pointer event anywhere in the app (`primeAudio()` in `src/app/App.tsx`), so the very first shuffle or flip is not swallowed.
+- **Trap to remember:** a real `BiquadFilterNode` exposes `Q` through a getter only. `filter.Q = 1.1` throws — and because sounds are called from the pointer handlers, that exception killed dragging on the table. `src/test/sounds.test.ts` runs every sound against a stub AudioContext that behaves like the real one, so this class of bug fails in CI rather than in the browser.
 
 ## 3. Shuffle: the propeller riffle
 
-On shuffle the stack renders as two clipped halves (left/right) that **counter-rotate** — up to ±16°, then settle — while the underlying stack layers fan out and come back. 500 ms, matched to the riffle sound. This is the Tabletop Simulator shorthand for shuffling: not physically accurate, but it reads instantly as "the deck is being shuffled".
+On shuffle the stack keeps its full back underneath while two clipped halves (left/right) **counter-rotate** — up to ±8°, then settle — and the pile layers fan out and come back. 500 ms, matched to the riffle sound. Keeping the whole back painted below the halves is what stops the pack from looking like it has been sliced in two; this is the Tabletop Simulator shorthand for shuffling: not physically accurate, but it reads instantly as "the deck is being shuffled".
 
 `prefers-reduced-motion` disables the animation.
 
@@ -86,6 +90,8 @@ It is deliberately minimalist but immediately recognisable, so a first-time visi
 - `src/test/snap.test.ts` — 9 tests: snap/near-miss behaviour, neighbour alignment, negative coordinates, looser tolerance, rotation straightening, graceful no-op without an audio device.
 - `src/test/standard-deck.test.ts` — 6 tests: 52 unique cards, 13 per suit, real card names, red/black suits, correct pip counts, pips inside the card and never overlapping.
 - `src/test/table-operations.test.ts` — cutting a deck (halves, order preserved, deck reference kept) and deal jitter bounded by ±2°.
+- `src/test/sounds.test.ts` — 3 tests against a stub AudioContext that mimics the real one (getter-only `Q`): every sound builds nodes without throwing, the riffle is busier than a single flip, and muting creates nothing.
+- `scripts/e2e-table.mjs` (`npm run test:e2e`) — a headless-Chromium smoke test that starts Vite itself and drives real pointer events: the camera frames the deck, the face-down top card is a real back (not blank stock), dragging peels a card off a stack, holding grabs the whole deck, shuffle riffles and animates, double-click flips, cut and set-down make sounds, and the header Sound toggle silences everything. Exits non-zero on failure.
 
 ## 10. Deliberate non-goals
 

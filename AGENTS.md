@@ -111,7 +111,8 @@ Game rules, scoring, AI, multiplayer, accounts, cloud sync, analytics, ads, DRM,
 ```bash
 npm run lint        # ESLint
 npm run typecheck   # strict TS check
-npm test            # Vitest (86 tests, 10 files)
+npm test            # Vitest (108 tests, 13 files)
+npm run test:e2e    # headless-Chromium interaction smoke test (scripts/e2e-table.mjs)
 npm run build       # Vite production build (default relative base "./" — works at any Pages path)
 VITE_BASE=/ npm run build  # only if you need absolute root asset paths
 npm run icons       # regenerate PNG app icons (192/512)
@@ -145,7 +146,9 @@ scripts/generate-icons.mjs   # npm run icons
 .github/workflows/deploy.yml # Node 22: npm ci -> lint -> typecheck -> test -> build -> Pages
 ```
 
-Run `npm test`, `npm run lint` and `npm run typecheck` before claiming any change is complete; all three pass as of 2026-11-06.
+Run `npm test`, `npm run lint` and `npm run typecheck` before claiming any change is complete; all three pass as of 2026-11-07. `npm run test:e2e` drives a real browser through the table gestures (it starts Vite itself) — run it after touching anything in `src/features/table/`.
+
+**Table pitfall:** sounds are called from the pointer handlers, so an exception inside `sounds.ts` silently kills dragging. Real Web Audio nodes expose `Q` as a getter only — use `filter.Q.value = …`, never `filter.Q = …`. `src/test/sounds.test.ts` guards this with a stub AudioContext that behaves like the browser's.
 
 ## Deployment status (verified 2026-11-07)
 

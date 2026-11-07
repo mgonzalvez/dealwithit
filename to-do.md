@@ -92,9 +92,9 @@ A one-click **"Play a standard 52-card deck"** in the Library creates a real pok
 | Idea | Why | Status |
 |---|---|---|
 | Cards lift and cast a bigger shadow while dragged | Real cards rise off the felt | Partly there (`grabbing` shadow) — deepen? |
-| Stack thickness illusion for 52-card piles | A big pile should look thick | ⬜ Draw more edges as count grows |
-| Per-table sound setting | Currently global (`tableSound`) | ⬜ Decide if per-table |
-| First-sound unlock | Browsers need a gesture before audio; audio starts on the first interaction | ⬜ Confirm acceptable |
+| Stack thickness illusion for 52-card piles | A big pile should look thick | ✅ Up to six layers, spaced 2.5 px for big piles; the sides take the deck's back colour |
+| Per-table sound setting | Sound is a preference, not a table property | ✅ Decided: global toggle in the header (`sound`) |
+| First-sound unlock | Browsers refuse audio before a gesture | ✅ AudioContext primed on the first pointer event app-wide |
 | Squaring-up tap animation | A visual "tap" when a stack is gathered | ⬜ Nice-to-have |
 | Card backs for the standard deck variants | Red/blue classic backs | ⬜ Add a back selector for the standard deck |
 
@@ -102,7 +102,8 @@ A one-click **"Play a standard 52-card deck"** in the Library creates a real pok
 
 ## Verified gates
 
-- 105 unit/integration tests across 12 files (snap logic, cutting, deal jitter, standard-deck spec, plus everything before).
+- 108 unit/integration tests across 13 files (snap logic, cutting, deal jitter, standard-deck spec, synthesised sounds, plus everything before).
+- `npm run test:e2e` drives headless Chromium through the actual table gestures and checks the sounds each one makes.
 - Lint, typecheck, build and Pages deploy all green.
 - Standard card art and the neutral back checked by rendering in headless Chrome.
 

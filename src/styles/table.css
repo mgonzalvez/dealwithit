@@ -60,17 +60,33 @@
 }
 
 /* A stack looks like a pile of cards: the layers underneath are slightly
-   offset and each has its own edge shadow. */
+   offset and each has its own edge shadow. The sides of a real pile are the
+   card back colour, so the edges inherit the deck's back. The top card must
+   paint above them, hence the explicit stacking. */
 .stack-edge {
   position: absolute;
   inset: 0;
-  background: #d8d2c4;
-  border: 1px solid #b9b3a4;
+  z-index: 0;
+  background: var(--edge-color, #d8d2c4);
+  border: 1px solid rgba(0, 0, 0, 0.22);
   border-radius: 8px;
+  filter: brightness(0.82);
+  transform: translate(var(--ex, 0), var(--ey, 0));
 }
 
-/* --- Shuffle: two halves counter-rotate like opposing propellers, the way
-   Tabletop Simulator sells the idea of a riffle. 500 ms. --- */
+.table-object img {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  display: block;
+}
+
+/* --- Shuffle: two halves of the pack counter-rotate like opposing propellers
+   (the Tabletop Simulator shorthand for a riffle). The whole back stays
+   underneath, so the pack never looks cut open. 500 ms. --- */
 .shuffle-split {
   position: absolute;
   inset: 0;
@@ -79,6 +95,7 @@
 .shuffle-half {
   position: absolute;
   inset: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
 }
 
 .shuffle-half img {
@@ -103,72 +120,49 @@
 @keyframes propellerLeft {
   0%,
   100% {
-    transform: rotate(0deg) translate(0, 0);
+    transform: rotate(0deg);
   }
   28% {
-    transform: rotate(16deg) translate(-6px, -6px);
+    transform: rotate(8deg) translate(-2px, -2px);
   }
-  58% {
-    transform: rotate(-9deg) translate(3px, 3px);
+  56% {
+    transform: rotate(-4deg) translate(1px, 1px);
   }
-  82% {
-    transform: rotate(4deg);
+  80% {
+    transform: rotate(2deg);
   }
 }
 
 @keyframes propellerRight {
   0%,
   100% {
-    transform: rotate(0deg) translate(0, 0);
+    transform: rotate(0deg);
   }
   28% {
-    transform: rotate(-16deg) translate(6px, 6px);
+    transform: rotate(-8deg) translate(2px, 2px);
   }
-  58% {
-    transform: rotate(9deg) translate(-3px, -3px);
+  56% {
+    transform: rotate(4deg) translate(-1px, -1px);
   }
-  82% {
-    transform: rotate(-4deg);
+  80% {
+    transform: rotate(-2deg);
   }
 }
 
-.table-object.anim-shuffle .stack-edge-1 {
-  animation: fan1 500ms ease-in-out;
-}
-.table-object.anim-shuffle .stack-edge-2 {
-  animation: fan2 500ms ease-in-out;
-}
-.table-object.anim-shuffle .stack-edge-3 {
-  animation: fan3 500ms ease-in-out;
+.table-object.anim-shuffle .stack-edge {
+  animation: fanEdge 500ms ease-in-out;
 }
 
-@keyframes fan1 {
+@keyframes fanEdge {
   0%,
   100% {
-    transform: translate(-4px, -4px);
+    transform: translate(var(--ex, 0), var(--ey, 0));
   }
   40% {
-    transform: translate(-11px, -9px);
+    transform: translate(calc(var(--ex, 0) - 7px), calc(var(--ey, 0) - 6px));
   }
-}
-
-@keyframes fan2 {
-  0%,
-  100% {
-    transform: translate(-8px, -8px);
-  }
-  45% {
-    transform: translate(-18px, -15px);
-  }
-}
-
-@keyframes fan3 {
-  0%,
-  100% {
-    transform: translate(-12px, -12px);
-  }
-  50% {
-    transform: translate(-25px, -22px);
+  70% {
+    transform: translate(calc(var(--ex, 0) + 2px), calc(var(--ey, 0) + 2px));
   }
 }
 

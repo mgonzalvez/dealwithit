@@ -6,6 +6,7 @@ import { getSetting, listProjects, setSetting } from '../persistence/repositorie
 import { createDemoProject } from '../features/library/demo';
 import { TOUR_STEPS, TourRail } from '../features/onboarding/Tour';
 import { TipsContext } from './tips';
+import { primeAudio, setSoundMuted } from '../features/table/sounds';
 
 const RELATED_TOOLS = [
   { name: 'GonzHome — all tools', url: 'https://gonzhome.us' },
@@ -38,6 +39,7 @@ export function App() {
   const [route, setRoute] = useState<Route>(() => parseHash(window.location.hash));
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [tipsEnabled, setTipsEnabled] = useState(true);
+  const [soundOn, setSoundOn] = useState(true);
   const [tourStep, setTourStep] = useState<number | null>(null);
 
   const navigate = (hash: string) => {
@@ -46,6 +48,14 @@ export function App() {
   };
 
   window.addEventListener('hashchange', () => setRoute(parseHash(window.location.hash)));
+
+  useEffect(() => {
+    // Browsers won't let audio start without a gesture. Warm the context up on
+    // the first touch so the very first shuffle or flip is not silent.
+    const prime = () => primeAudio();
+    document.addEventListener('pointerdown', prime, { once: true });
+    return () => document.removeEventListener('pointerdown', prime);
+  }, []);
 
   useEffect(() => {
     void getSetting('tour-seen').then((seen) => {
@@ -61,6 +71,11 @@ export function App() {
       applyTheme(next);
     });
     void getSetting('tips').then((stored) => setTipsEnabled(stored !== false));
+    void getSetting('sound').then((stored) => {
+      const on = stored !== false;
+      setSoundOn(on);
+      setSoundMuted(!on);
+    });
   }, []);
 
   async function ensureTourProject(): Promise<string> {
@@ -105,6 +120,13 @@ export function App() {
     const next = !tipsEnabled;
     setTipsEnabled(next);
     void setSetting('tips', next);
+  }
+
+  function toggleSound() {
+    const next = !soundOn;
+    setSoundOn(next);
+    setSoundMuted(!next);
+    void setSetting('sound', next);
   }
 
   return (
@@ -167,6 +189,15 @@ export function App() {
                 ))}
               </div>
             </details>
+            <button
+              type="button"
+              className="tips-toggle"
+              aria-pressed={soundOn}
+              onClick={toggleSound}
+              title={soundOn ? 'Mute the table sounds' : 'Play the table sounds'}
+            >
+              Sound {soundOn ? 'on' : 'off'}
+            </button>
             <button
               type="button"
               className="tips-toggle"

@@ -105,7 +105,6 @@ export function TablePage({
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [grabbingId, setGrabbingId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [soundOn, setSoundOn] = useState(true);
   const [snapOn, setSnapOn] = useState(true);
   const [animations, setAnimations] = useState<Map<string, string>>(new Map());
   const [deckThumbs, setDeckThumbs] = useState<Map<string, { url: string; label: string }>>(new Map());
@@ -120,6 +119,7 @@ export function TablePage({
   const pastRef = useRef<Snapshot[]>([]);
   const futureRef = useRef<Snapshot[]>([]);
   const fittedRef = useRef(false);
+  const edgeColorRef = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
     tableRef.current = table;
@@ -186,12 +186,43 @@ export function TablePage({
 
     setTable(table);
     setDrawFaceUp(Boolean(await getSetting(`drawFaceUp:${table.id}`)));
-    const storedSound = await getSetting('tableSound');
-    const nextSound = storedSound !== false;
-    setSoundOn(nextSound);
-    setSoundMuted(!nextSound);
+    setSoundMuted((await getSetting('sound')) === false);
     setSnapOn((await getSetting('tableSnap')) !== false);
     setLoading(false);
+  }
+
+  /** The colour of the pile's sides: the card back, slightly darker. */
+  function edgeColor(card?: CardDefinition, deck?: DeckDefinition): string {
+    if (!card) return '#d8d2c4';
+    const back = resolveBack(card, deck);
+    if (back.kind === 'generated') return back.design.base;
+    if (back.kind === 'neutral') return '#1f3a52';
+    const cached = edgeColorRef.current.get(back.assetId);
+    if (cached) return cached;
+    const image = imagesRef.current.get(back.assetId);
+    let color = '#d8d2c4';
+    if (image) {
+      const swatch = document.createElement('canvas');
+      swatch.width = 6;
+      swatch.height = 6;
+      const ctx = swatch.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(image, 0, 0, 6, 6);
+        const data = ctx.getImageData(0, 0, 6, 6).data;
+        let r = 0;
+        let g = 0;
+        let b = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          r += data[i];
+          g += data[i + 1];
+          b += data[i + 2];
+        }
+        const n = data.length / 4;
+        color = `rgb(${Math.round(r / n)}, ${Math.round(g / n)}, ${Math.round(b / n)})`;
+      }
+    }
+    edgeColorRef.current.set(back.assetId, color);
+    return color;
   }
 
   /** Draw one face of a card at table resolution, cached by card + face + deck. */
@@ -231,7 +262,7 @@ export function TablePage({
   }
 
   function sound(kind: TableSound) {
-    if (soundOn) playTableSound(kind);
+    playTableSound(kind);
   }
 
   useEffect(() => {
@@ -239,11 +270,14 @@ export function TablePage({
   }, [projectId]);
 
   useEffect(() => {
-    if (table && canvasRef.current && !fittedRef.current) {
+    // The canvas only exists once loading is finished, so this must depend on
+    // both — otherwise a freshly launched deck is never framed and can end up
+    // outside the visible part of the table.
+    if (table && !loading && canvasRef.current && !fittedRef.current) {
       fittedRef.current = true;
       fitView();
     }
-  }, [table]);
+  }, [table, loading]);
 
   // Debounced autosave.
   useEffect(() => {
@@ -528,6 +562,7 @@ export function TablePage({
     event.stopPropagation();
     setSelectedId(object.id);
     setDraggingId(object.id);
+    sound('pickup');
     // Dragging a stack peels its top card (drag-to-draw). Hold Shift to slide
     // the whole stack instead.
     const peel =
@@ -696,11 +731,11 @@ export function TablePage({
             .filter((o) => o.id !== dragged.id)
             .map((o) => (o.id === target.id ? mergeStack(target, dragged) : o));
           changed = true;
-          sound('place');
         }
       }
 
       if (changed) mutate(objects);
+      if (drag.moved) sound('place');
     }
     dragRef.current = null;
     setDraggingId(null);
@@ -816,7 +851,7 @@ export function TablePage({
     const current = tableRef.current;
     if (!object || !current) return;
     mutate(cutStack(object, current.objects));
-    sound('place');
+    sound('cut');
   }
 
   function drawOne() {
@@ -963,20 +998,6 @@ export function TablePage({
         <button
           type="button"
           className="tips-toggle"
-          aria-pressed={soundOn}
-          onClick={() => {
-            const next = !soundOn;
-            setSoundOn(next);
-            setSoundMuted(!next);
-            void setSetting('tableSound', next);
-          }}
-          title={soundOn ? 'Table sounds on' : 'Table sounds off'}
-        >
-          Sound {soundOn ? 'on' : 'off'}
-        </button>
-        <button
-          type="button"
-          className="tips-toggle"
           aria-pressed={snapOn}
           onClick={() => {
             const next = !snapOn;
@@ -1064,7 +1085,8 @@ export function TablePage({
               const { w, h } = cardSize(card);
               const url = card ? renderFace(card, top.face, deck) : '';
               const isStack = object.type === 'stack';
-              const layers = Math.min(3, Math.max(0, object.cardInstances.length - 1));
+              const layers = Math.min(6, Math.max(0, object.cardInstances.length - 1));
+              const layerStep = object.cardInstances.length > 24 ? 2.5 : 4;
               const animation = animations.get(object.id);
               return (
                 <div
@@ -1076,6 +1098,7 @@ export function TablePage({
                     width: w,
                     height: h,
                     ['--rot' as string]: `${object.rotationDeg}deg`,
+                    ['--edge-color' as string]: isStack ? edgeColor(card, deck) : undefined,
                     transform: `rotate(${object.rotationDeg}deg)`,
                     zIndex: object.z + 1
                   }}
@@ -1093,15 +1116,22 @@ export function TablePage({
                   onContextMenu={(e) => openContextMenu(e, object)}
                 >
                   {Array.from({ length: layers }, (_, i) => (
-                    <div key={i} className={`stack-edge stack-edge-${i + 1}`} aria-hidden="true" />
+                    <div
+                      key={i}
+                      className="stack-edge"
+                      aria-hidden="true"
+                      style={{
+                        ['--ex' as string]: `${-(i + 1) * layerStep}px`,
+                        ['--ey' as string]: `${-(i + 1) * layerStep}px`
+                      }}
+                    />
                   ))}
-                  {animation === 'shuffle' ? (
+                  {url && <img src={url} alt={card?.name ?? 'Card'} draggable={false} />}
+                  {animation === 'shuffle' && url && (
                     <div className="shuffle-split" aria-hidden="true">
                       <div className="shuffle-half left"><img src={url} alt="" /></div>
                       <div className="shuffle-half right"><img src={url} alt="" /></div>
                     </div>
-                  ) : (
-                    url && <img src={url} alt={card?.name ?? 'Card'} draggable={false} />
                   )}
                   {isStack && <span className="count-badge">{object.cardInstances.length}</span>}
                 </div>
@@ -1161,7 +1191,7 @@ export function TablePage({
                       <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects, o) => shuffleStack(o, objects), 'shuffle')}>
                         Shuffle
                       </button>
-                      <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects, o) => cutStack(o, objects), 'place')}>
+                      <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects, o) => cutStack(o, objects), 'cut')}>
                         Cut
                       </button>
                       <button type="button" role="menuitem" onClick={() => applyTo(menu.id, (objects, o) => drawFromStack(o, objects, { faceUp: drawFaceUp }), 'draw')}>
