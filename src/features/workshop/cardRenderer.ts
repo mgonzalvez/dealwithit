@@ -1,5 +1,6 @@
 import { CardDefinition } from '../../domain/models';
 import { DEFAULT_TRANSFORM } from '../../domain/transforms';
+import { GeneratedBack, Shape, generateBackGeometry } from '../../domain/back-designs';
 
 export function loadImage(blob: Blob): Promise<HTMLImageElement | null> {
   const url = URL.createObjectURL(blob);
@@ -17,6 +18,91 @@ export function loadImage(blob: Blob): Promise<HTMLImageElement | null> {
   });
 }
 
+function drawShape(ctx: CanvasRenderingContext2D, shape: Shape): void {
+  switch (shape.kind) {
+    case 'rect':
+      ctx.fillStyle = shape.fill;
+      ctx.fillRect(shape.x, shape.y, shape.w, shape.h);
+      break;
+    case 'circle': {
+      ctx.beginPath();
+      ctx.arc(shape.cx, shape.cy, Math.max(0.5, shape.r), 0, Math.PI * 2);
+      if (shape.fill) {
+        ctx.fillStyle = shape.fill;
+        ctx.fill();
+      } else if (shape.stroke) {
+        ctx.strokeStyle = shape.stroke;
+        ctx.lineWidth = Math.max(1, shape.width ?? 1);
+        ctx.stroke();
+      }
+      break;
+    }
+    case 'line':
+      ctx.strokeStyle = shape.stroke;
+      ctx.lineWidth = Math.max(1, shape.width);
+      ctx.beginPath();
+      ctx.moveTo(shape.x1, shape.y1);
+      ctx.lineTo(shape.x2, shape.y2);
+      ctx.stroke();
+      break;
+    case 'path':
+      ctx.strokeStyle = shape.stroke;
+      ctx.lineWidth = Math.max(1, shape.width);
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (let i = 0; i < shape.points.length; i += 2) {
+        if (i === 0) ctx.moveTo(shape.points[i], shape.points[i + 1]);
+        else ctx.lineTo(shape.points[i], shape.points[i + 1]);
+      }
+      ctx.stroke();
+      break;
+    case 'poly':
+      ctx.fillStyle = shape.fill;
+      ctx.beginPath();
+      for (let i = 0; i < shape.points.length; i += 2) {
+        if (i === 0) ctx.moveTo(shape.points[i], shape.points[i + 1]);
+        else ctx.lineTo(shape.points[i], shape.points[i + 1]);
+      }
+      ctx.closePath();
+      ctx.fill();
+      break;
+    case 'text':
+      ctx.save();
+      ctx.translate(shape.cx, shape.cy);
+      ctx.rotate((shape.rotateDeg * Math.PI) / 180);
+      ctx.fillStyle = shape.color;
+      ctx.font = `700 ${shape.size}px -apple-system, BlinkMacSystemFont, "Space Grotesk", system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(shape.text, 0, 0);
+      ctx.restore();
+      break;
+  }
+}
+
+/**
+ * Draw a procedurally generated card back. Deterministic for a given design:
+ * the pattern comes from a seeded PRNG, so the same JSON always looks the same.
+ */
+export function drawGeneratedBack(
+  ctx: CanvasRenderingContext2D,
+  design: GeneratedBack,
+  width: number,
+  height: number
+): void {
+  ctx.fillStyle = design.base;
+  ctx.fillRect(0, 0, width, height);
+  for (const shape of generateBackGeometry(design, width, height)) drawShape(ctx, shape);
+
+  const frame = Math.min(width, height) * 0.04 * design.border;
+  if (frame > 0) {
+    ctx.strokeStyle = design.ink;
+    ctx.lineWidth = Math.max(1, frame * 0.6);
+    ctx.strokeRect(frame / 2, frame / 2, width - frame, height - frame);
+  }
+}
+
 /**
  * Draw a card definition onto a canvas applying its non-destructive
  * transform (rotation, fit, zoom, pan). The original image blob is never
@@ -28,7 +114,8 @@ export function renderCardPreview(
   backImage: HTMLImageElement | null,
   face: 'front' | 'back',
   canvas: HTMLCanvasElement,
-  maxPx = 420
+  maxPx = 420,
+  backDesign?: GeneratedBack
 ): void {
   const ratio = card.widthMm / card.heightMm;
   const width = ratio >= 1 ? maxPx : Math.round(maxPx * ratio);
@@ -47,6 +134,10 @@ export function renderCardPreview(
 
   const image = face === 'front' ? frontImage : backImage;
   if (!image) {
+    if (face === 'back' && backDesign) {
+      drawGeneratedBack(ctx, backDesign, width, height);
+      return;
+    }
     // Neutral generated back.
     ctx.fillStyle = '#3b4a40';
     ctx.fillRect(2, 2, width - 4, height - 4);

@@ -2,6 +2,7 @@
 import { createRoot } from 'react-dom/client';
 import '../styles/styles.css';
 import '../styles/workshop.css';
+import '../styles/backdesigner.css';
 import { App } from './App';
 
 const root = document.getElementById('root');

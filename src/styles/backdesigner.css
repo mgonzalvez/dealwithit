@@ -1,0 +1,187 @@
+/* ===== Card Back Designer (wizard) ===== */
+
+.back-designer {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 18px;
+  padding: 4px 0 0;
+}
+
+.back-designer-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.back-designer-preview canvas {
+  width: 100%;
+  max-width: 240px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-card);
+}
+
+.back-designer-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.back-designer-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.back-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--control-bg);
+  color: var(--text-secondary);
+  font-size: 14px;
+  min-height: 40px;
+}
+
+.back-step.on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.back-step-num {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.back-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.back-option {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-solid);
+  min-height: 44px;
+  font-size: 13px;
+}
+
+.back-option canvas {
+  width: 72px;
+  height: 100px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.back-option.selected {
+  border-color: var(--accent);
+  box-shadow: var(--focus);
+}
+
+.back-colors {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+}
+
+.back-color {
+  min-height: 52px;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--border-strong);
+  color: var(--ink);
+  font-size: 13px;
+  padding: 10px;
+}
+
+.back-color.selected {
+  border-color: var(--accent);
+  box-shadow: var(--focus);
+}
+
+.back-custom {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.back-custom input[type='color'] {
+  width: 44px;
+  height: 32px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface-solid);
+}
+
+.back-name label {
+  display: block;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.back-name input[type='text'] {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-solid);
+  color: var(--ink);
+  font: inherit;
+}
+
+.back-designer-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+/* Small back chip shown next to a deck or card */
+.back-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.back-chip canvas {
+  width: 34px;
+  height: 48px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+@media (max-width: 720px) {
+  .back-designer {
+    grid-template-columns: 1fr;
+  }
+  .back-designer-preview canvas {
+    max-width: 180px;
+  }
+}

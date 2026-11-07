@@ -30,6 +30,12 @@ export const TOUR_STEPS: TourStep[] = [
       'Click any card tile to flip between its front and back. Select all, then Apply back to selected to give every card the same back. Rotate 90° fixes sideways faces. Edit opens crop, size and rotation controls.',
   },
   {
+    title: 'Design your own card back',
+    where: 'Workshop › Decks',
+    body:
+      'Press Generate a back and follow the three steps: pick a style, pick a colour, type your game name. The back is drawn for you — no image needed, and it scales to any card size. “Surprise me” gives you a random one; Shuffle pattern keeps the colours and redraws the pattern. Apply to this deck gives every card in it that back. Individual cards can still use their own back image instead.',
+  },
+  {
     title: 'Assemble a deck',
     where: 'Workshop › Decks',
     body:

@@ -2,6 +2,7 @@ import { CardDefinition, DeckDefinition, ImageAsset } from '../../domain/models'
 import { deckCardCount } from '../../domain/deck-operations';
 import { Button } from '../../components/ui';
 import { DECK_ICONS, DeckIconGlyph } from '../decks/deckIcons';
+import { BackChip } from '../backdesign/BackChip';
 
 export interface DeckBuilderProps {
   decks: DeckDefinition[];
@@ -19,6 +20,7 @@ export interface DeckBuilderProps {
   onAddSelectedCards: (deck: DeckDefinition) => void;
   onPlay: (deck: DeckDefinition) => void;
   onSetIcon: (deck: DeckDefinition, icon: string) => void;
+  onDesignBack: (deck: DeckDefinition) => void;
   cards: CardDefinition[];
   selectedCardIds: Set<string>;
   assets: ImageAsset[];
@@ -121,7 +123,7 @@ export function DeckBuilder(props: DeckBuilderProps) {
                 value={activeDeck.defaultBackAssetId ?? ''}
                 onChange={(e) => props.onSetDefaultBack(activeDeck, e.target.value || undefined)}
               >
-                <option value="">Neutral generated back</option>
+                <option value="">Generated back (choose one below)</option>
                 {props.assets.map((asset) => (
                   <option key={asset.id} value={asset.id}>
                     {asset.filename}
@@ -129,6 +131,8 @@ export function DeckBuilder(props: DeckBuilderProps) {
                 ))}
               </select>
             </label>
+            <Button label="Generate a back" variant="secondary" onClick={() => props.onDesignBack(activeDeck)} />
+            {activeDeck.defaultBackDesign && <BackChip design={activeDeck.defaultBackDesign} />}
             <Button
               label={`Add ${props.selectedCardIds.size} selected card(s)`}
               onClick={() => props.onAddSelectedCards(activeDeck)}

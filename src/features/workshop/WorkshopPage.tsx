@@ -25,6 +25,7 @@ import {
   renameDeck,
   removeEntry,
   setDefaultBack,
+  setGeneratedBack,
   setEntryQuantity
 } from '../../domain/deck-operations';
 import { rotateTransform } from '../../domain/transforms';
@@ -37,6 +38,8 @@ import { makeThumbnail, probeImage } from '../import/imageMeta';
 import { CardEditor } from './CardEditor';
 import { DeckBuilder } from './DeckBuilder';
 import { CardGrid } from './CardGrid';
+import { CardBackDesigner } from '../backdesign/CardBackDesigner';
+import { GeneratedBack } from '../../domain/back-designs';
 import { duplicateCardDefinition } from '../../domain/card-operations';
 import { transferEntry } from '../../domain/deck-operations';
 
@@ -85,6 +88,12 @@ export function WorkshopPage({
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const [activeDeckId, setActiveDeckId] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [backDesigner, setBackDesigner] = useState<{
+    scope: 'deck' | 'cards' | 'card';
+    deckId?: string;
+    cardId?: string;
+    initial?: GeneratedBack;
+  } | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const zipInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -372,11 +381,40 @@ export function WorkshopPage({
     if (!projectId) return;
     for (const card of cards) {
       if (!selectedCardIds.has(card.id)) continue;
-      await saveCardDefinition({ ...card, backAssetId: backAssetId ?? undefined });
+      await saveCardDefinition({ ...card, backAssetId: backAssetId ?? undefined, backDesign: undefined });
     }
     await touchProject(projectId);
     markSaved();
     await refresh();
+  }
+
+  /** Apply a generated back. Generated and uploaded backs are mutually exclusive. */
+  async function applyBackDesign(design: GeneratedBack) {
+    if (!projectId || !backDesigner) return;
+    if (backDesigner.scope === 'deck') {
+      const deck = decks.find((d) => d.id === backDesigner.deckId);
+      if (deck) await saveDeck(setGeneratedBack(deck, design));
+    } else if (backDesigner.scope === 'cards') {
+      for (const card of cards) {
+        if (!selectedCardIds.has(card.id)) continue;
+        await saveCardDefinition({ ...card, backDesign: design, backAssetId: undefined });
+      }
+    } else {
+      const card = cards.find((c) => c.id === backDesigner.cardId);
+      if (card) await saveCardDefinition({ ...card, backDesign: design, backAssetId: undefined });
+    }
+    await touchProject(projectId);
+    markSaved();
+    setBackDesigner(null);
+    await refresh();
+  }
+
+  function openBackDesigner(scope: 'deck' | 'cards' | 'card', id?: string) {
+    const initial =
+      scope === 'deck'
+        ? decks.find((d) => d.id === id)?.defaultBackDesign
+        : cards.find((c) => c.id === id)?.backDesign;
+    setBackDesigner({ scope, deckId: scope === 'deck' ? id : undefined, cardId: scope === 'card' ? id : undefined, initial });
   }
 
   async function transferCard(deck: DeckDefinition, entryId: string, targetDeckId: string) {
@@ -604,8 +642,9 @@ export function WorkshopPage({
               onEdit={(id) => setActiveCardId(id)}
               onDuplicate={(card) => void duplicateCard(card)}
               onDelete={deleteCard}
-              onAssignBack={(card, backAssetId) => void saveCard({ ...card, backAssetId })}
+              onAssignBack={(card, backAssetId) => void saveCard({ ...card, backAssetId, backDesign: undefined })}
               onBulkAssignBack={(backAssetId) => void bulkAssignBack(backAssetId)}
+              onDesignBack={() => openBackDesigner(selectedCardIds.size ? 'cards' : 'deck', decks[0]?.id)}
               onRotateSelected={() => void batchRotateSelected()}
               onSelectAll={() => setSelectedCardIds(new Set(cards.map((card) => card.id)))}
               onDeselectAll={() => setSelectedCardIds(new Set())}
@@ -618,6 +657,7 @@ export function WorkshopPage({
               assets={assets}
               onSave={(card) => void saveCard(card)}
               onDelete={deleteCard}
+              onDesignBack={(card) => openBackDesigner('card', card.id)}
             />
           )}
 
@@ -647,6 +687,7 @@ export function WorkshopPage({
           onAddSelectedCards={(deck) => void addSelectedCardsToDeck(deck)}
           onPlay={() => navigate(`#/table/${projectId}`)}
           onSetIcon={(deck, icon) => void updateDeck({ ...deck, icon: icon || undefined })}
+          onDesignBack={(deck) => openBackDesigner('deck', deck.id)}
           cards={cards}
           selectedCardIds={selectedCardIds}
           assets={assets}
@@ -659,6 +700,18 @@ export function WorkshopPage({
           />
         </>
       )}
+
+      <Dialog title="Design a card back" open={backDesigner !== null} onClose={() => setBackDesigner(null)}>
+        {backDesigner && (
+          <CardBackDesigner
+            projectName={project?.name ?? 'My game'}
+            initial={backDesigner.initial}
+            scope={backDesigner.scope}
+            onApply={(design) => void applyBackDesign(design)}
+            onCancel={() => setBackDesigner(null)}
+          />
+        )}
+      </Dialog>
 
       <Dialog title={preview?.asset.filename ?? 'Preview'} open={preview !== null} onClose={closePreview}>
         {preview && <img src={preview.url} alt={preview.asset.filename} className="preview-image" />}

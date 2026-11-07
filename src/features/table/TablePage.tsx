@@ -36,6 +36,7 @@ import {
   shuffleStack
 } from '../../domain/table-operations';
 import { deckCardCount } from '../../domain/deck-operations';
+import { resolveBack } from '../../domain/back-designs';
 import { loadImage, renderCardPreview } from '../workshop/cardRenderer';
 
 const MIN_ZOOM = 0.2;
@@ -136,15 +137,15 @@ export function TablePage({
     for (const card of cards) {
       const frontBlob = await getImageBlob(card.frontAssetId);
       const frontImage = frontBlob ? await loadImage(frontBlob) : null;
-      const backAssetId =
-        card.backAssetId ??
-        decks.find((d) => d.defaultBackAssetId && d.entries.some((e) => e.cardDefinitionId === card.id))
-          ?.defaultBackAssetId;
+      const deck = decks.find((d) => d.entries.some((entry) => entry.cardDefinitionId === card.id));
+      const source = resolveBack(card, deck);
+      const backAssetId = source.kind === 'image' ? source.assetId : undefined;
       const backBlob = backAssetId ? await getImageBlob(backAssetId) : null;
       const backImage = backBlob ? await loadImage(backBlob) : null;
+      const backDesign = source.kind === 'generated' ? source.design : undefined;
       for (const face of ['front', 'back'] as const) {
         const canvas = document.createElement('canvas');
-        renderCardPreview(card, frontImage, backImage, face, canvas, 300);
+        renderCardPreview(card, frontImage, backImage, face, canvas, 300, backDesign);
         faceCache.set(`${card.id}:${face}`, canvas.toDataURL('image/png'));
       }
     }

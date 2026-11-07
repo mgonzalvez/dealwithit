@@ -1,4 +1,5 @@
 import { CardInstance, DeckDefinition, DeckEntry } from './models';
+import { GeneratedBack } from './back-designs';
 
 /**
  * Unbiased random integer in [0, maxExclusive) using crypto.getRandomValues
@@ -161,6 +162,19 @@ export function setDefaultBack(deck: DeckDefinition, assetId: string | undefined
   return { ...deck, defaultBackAssetId: assetId, updatedAt: Date.now() };
 }
 
+/**
+ * Attach a procedurally generated back to a deck. A generated back and an
+ * uploaded back image are mutually exclusive, so the image is cleared.
+ */
+export function setGeneratedBack(deck: DeckDefinition, design: GeneratedBack): DeckDefinition {
+  return {
+    ...deck,
+    defaultBackDesign: design,
+    defaultBackAssetId: undefined,
+    updatedAt: Date.now()
+  };
+}
+
 /** Copy a deck recipe. Entries get fresh IDs but reference the same card definitions (no blob duplication). */
 export function duplicateDeck(deck: DeckDefinition, projectId: string): DeckDefinition {
   const now = Date.now();
@@ -174,6 +188,7 @@ export function duplicateDeck(deck: DeckDefinition, projectId: string): DeckDefi
       quantity: e.quantity
     })),
     defaultBackAssetId: deck.defaultBackAssetId,
+    defaultBackDesign: deck.defaultBackDesign,
     createdAt: now,
     updatedAt: now
   };

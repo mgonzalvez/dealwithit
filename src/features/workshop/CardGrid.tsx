@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { CardDefinition, DeckDefinition, ImageAsset } from '../../domain/models';
+import { resolveBack } from '../../domain/back-designs';
 import { getImageBlob } from '../../persistence/repositories';
 import { loadImage, renderCardPreview } from './cardRenderer';
 import { Button } from '../../components/ui';
@@ -35,6 +36,7 @@ export interface CardGridProps {
   onDelete: (card: CardDefinition) => void;
   onAssignBack: (card: CardDefinition, backAssetId: string | undefined) => void;
   onBulkAssignBack: (backAssetId: string | null) => void;
+  onDesignBack: () => void;
   onRotateSelected: () => void;
   onSelectAll: () => void;
   onDeselectAll: () => void;
@@ -46,6 +48,10 @@ function copiesInDecks(cardId: string, decks: DeckDefinition[]): number {
       sum + deck.entries.filter((e) => e.cardDefinitionId === cardId).reduce((s, e) => s + e.quantity, 0),
     0
   );
+}
+
+function deckForCard(card: CardDefinition, decks: DeckDefinition[]): DeckDefinition | undefined {
+  return decks.find((deck) => deck.entries.some((entry) => entry.cardDefinitionId === card.id));
 }
 
 interface TileProps {
@@ -69,14 +75,16 @@ function CardTile(props: TileProps) {
     let cancelled = false;
     void (async () => {
       const images = await getCardImages(card);
+      const source = resolveBack(card, deckForCard(card, decks));
+      const design = source.kind === 'generated' ? source.design : undefined;
       if (!cancelled && canvasRef.current) {
-        renderCardPreview(card, images.front, images.back, face, canvasRef.current, 220);
+        renderCardPreview(card, images.front, images.back, face, canvasRef.current, 220, design);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [card, face]);
+  }, [card, face, decks]);
 
   const copies = copiesInDecks(card.id, decks);
 
@@ -90,7 +98,7 @@ function CardTile(props: TileProps) {
       >
         <canvas ref={canvasRef} />
         <span className="card-tile-face-label">
-          {face === 'front' ? 'Front' : card.backAssetId ? 'Back' : 'Neutral back'}
+          {face === 'front' ? 'Front' : card.backAssetId ? 'Back' : card.backDesign ? 'Generated back' : 'Neutral back'}
         </span>
       </button>
       <div className="card-tile-meta">
@@ -147,6 +155,7 @@ export function CardGrid(props: CardGridProps) {
         <span className="muted">{props.selected.size} selected</span>
         {props.selected.size > 0 && (
           <>
+            <Button label="Design a generated back" variant="secondary" onClick={props.onDesignBack} />
             <Button label="Rotate 90°" variant="secondary" onClick={props.onRotateSelected} />
             <label className="card-grid-bulk-back">
               Apply back to selected

@@ -76,6 +76,7 @@ Card Extractor lives at `https://extractor.gonzhome.us` (tools index: `https://g
 | M4 | Export/import round-trip, migrations, undo/redo, storage warnings, accessibility | Desktop export → iPad import matches; undo shuffle/draw/move |
 | M5 | PWA, offline shell, iPad Safari ergonomics, performance, tutorial + demo game | Play on iPad touch-only, offline after install |
 | M6 | Optional direct Card Extractor bridge (only after real contract inspection) | Extract → import with zero per-card manual steps |
+| M7 | Generated card backs (6 styles × 8 colours + optional game name), wizard UI at deck and card level | lint + typecheck + tests + build pass |
 
 ## Conventions
 
@@ -107,7 +108,7 @@ Game rules, scoring, AI, multiplayer, accounts, cloud sync, analytics, ads, DRM,
 ```bash
 npm run lint        # ESLint
 npm run typecheck   # strict TS check
-npm test            # Vitest (74 tests as of 2026-11-02)
+npm test            # Vitest (86 tests, 10 files)
 npm run build       # Vite production build (default relative base "./" — works at any Pages path)
 VITE_BASE=/ npm run build  # only if you need absolute root asset paths
 npm run icons       # regenerate PNG app icons (192/512)
@@ -120,7 +121,7 @@ npm run preview     # preview the built app
 src/
   app/            App.tsx, main.tsx (hash router: #/library, #/workshop/<id>[/<tab>], #/table/<id>)
   components/     ui.tsx (Button, Dialog, Menu, EmptyState)
-  domain/         models.ts, schemas.ts (Zod), card/deck/table-operations.ts, transforms.ts, natural-sort.ts
+  domain/         models.ts, schemas.ts (Zod), card/deck/table-operations.ts, transforms.ts, natural-sort.ts, back-designs.ts (generated card backs)
   persistence/    db.ts (Dexie, version 1 + version 2), migrations.ts, repositories.ts
   integration/    card-extractor.ts (fronts/backs pairing adapter)
   features/
@@ -130,9 +131,10 @@ src/
     table/        TablePage.tsx
     decks/        deckIcons.tsx
     export/       export.ts (.dealwithit.zip round trip)
+    backdesign/   CardBackDesigner.tsx (style → colour → name wizard), BackChip.tsx
     onboarding/   QuickStart.tsx, Tour.tsx (guided step-by-step tour)
   styles/         styles.css, workshop.css
-  test/           9 Vitest files (74 tests) + fixtures/
+  test/           10 Vitest files (86 tests) + fixtures/
 public/
   deck-icons/     # 24 Fractal Symbols SVGs (CC BY 4.0) for deck icons
   favicon.svg, manifest.webmanifest, sw.js, icons/, CNAME

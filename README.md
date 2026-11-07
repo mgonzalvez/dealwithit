@@ -68,8 +68,12 @@ GitHub Pages deep links never 404.
   never mutate recipes. Shuffling is Fisher–Yates with
   `crypto.getRandomValues` (rejection sampling, unbiased).
 - **Milestones**: M0 scaffold, M1 image/ZIP import, M2 Workshop, M3 Table,
-  M4 export/import, M5 PWA/offline, M6 Card Extractor bridge — all done.
-  See `IMPLEMENTATION_STATUS.md`.
+  M4 export/import, M5 PWA/offline, M6 Card Extractor bridge, M7 generated card
+  backs — all done. See `IMPLEMENTATION_STATUS.md`.
+- **Card backs can be generated, not just uploaded.** In the Decks tab, *Generate
+  a back* opens a three-step wizard (style → colour → game name) that draws a
+  playing-card style pattern. The design is stored as JSON and rendered from a
+  seeded PRNG, so it looks identical on every device and adds nothing to export size.
 - **Workshop is visual**: card tiles render actual card art (click to flip
   front/back, bulk back assignment), decks appear as fanned thumbnail stacks
   with quantity steppers, reorder, deck icons and deck-to-deck transfer.

@@ -10,9 +10,10 @@ export interface CardEditorProps {
   assets: ImageAsset[];
   onSave: (card: CardDefinition) => void;
   onDelete: (card: CardDefinition) => void;
+  onDesignBack: (card: CardDefinition) => void;
 }
 
-export function CardEditor({ card, assets, onSave, onDelete }: CardEditorProps) {
+export function CardEditor({ card, assets, onSave, onDelete, onDesignBack }: CardEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const faceRef = useRef<'front' | 'back'>('front');
   const imagesRef = useRef<{ front: HTMLImageElement | null; back: HTMLImageElement | null }>({
@@ -23,7 +24,7 @@ export function CardEditor({ card, assets, onSave, onDelete }: CardEditorProps) 
   function draw() {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    renderCardPreview(card, imagesRef.current.front, imagesRef.current.back, faceRef.current, canvas);
+    renderCardPreview(card, imagesRef.current.front, imagesRef.current.back, faceRef.current, canvas, 420, card.backDesign);
   }
 
   useEffect(() => {
@@ -188,7 +189,7 @@ export function CardEditor({ card, assets, onSave, onDelete }: CardEditorProps) 
             Back image
             <select
               value={card.backAssetId ?? ''}
-              onChange={(e) => onSave({ ...card, backAssetId: e.target.value || undefined })}
+              onChange={(e) => onSave({ ...card, backAssetId: e.target.value || undefined, backDesign: undefined })}
             >
               <option value="">None (use deck default or neutral back)</option>
               {assets.map((asset) => (
@@ -198,6 +199,12 @@ export function CardEditor({ card, assets, onSave, onDelete }: CardEditorProps) 
               ))}
             </select>
           </label>
+          <Button label="Generate a back" variant="secondary" onClick={() => onDesignBack(card)} />
+          {card.backDesign && (
+            <span className="back-chip">
+              Generated: {card.backDesign.pattern} · {card.backDesign.title ? `"${card.backDesign.title}"` : 'no title'}
+            </span>
+          )}
         </div>
 
         <div className="control-row">

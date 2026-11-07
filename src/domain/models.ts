@@ -1,3 +1,5 @@
+import { GeneratedBack } from './back-designs';
+
 export type ID = string;
 
 export type ImageMime = 'image/png' | 'image/jpeg' | 'image/webp';
@@ -30,6 +32,8 @@ export interface CardDefinition {
   backAssetId?: ID;
   frontTransform: ImageTransform;
   backTransform?: ImageTransform;
+  /** Procedurally generated back. Mutually exclusive with backAssetId. */
+  backDesign?: GeneratedBack;
   widthMm: number;
   heightMm: number;
   tags: string[];
@@ -47,6 +51,7 @@ export interface DeckDefinition {
   name: string;
   entries: DeckEntry[];
   defaultBackAssetId?: ID;
+  defaultBackDesign?: GeneratedBack;
   icon?: string;
   createdAt: number;
   updatedAt: number;

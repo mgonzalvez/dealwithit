@@ -22,12 +22,24 @@ export const imageAssetSchema = z.object({
   createdAt: z.number()
 });
 
+export const generatedBackSchema = z.object({
+  seed: z.number().int().min(0),
+  pattern: z.enum(['diamonds', 'lattice', 'circles', 'waves', 'dots', 'plain']),
+  base: z.string().regex(/^#[0-9a-f]{6}$/i),
+  ink: z.string().regex(/^#[0-9a-f]{6}$/i),
+  accent: z.string().regex(/^#[0-9a-f]{6}$/i),
+  title: z.string().max(60),
+  showTitle: z.boolean(),
+  border: z.number().min(0).max(1)
+});
+
 export const cardDefinitionSchema = z.object({
   id: z.string(),
   projectId: z.string(),
   name: z.string().min(1),
   frontAssetId: z.string(),
   backAssetId: z.string().optional(),
+  backDesign: generatedBackSchema.optional(),
   frontTransform: imageTransformSchema,
   backTransform: imageTransformSchema.optional(),
   widthMm: z.number().positive(),
@@ -47,6 +59,7 @@ export const deckDefinitionSchema = z.object({
   name: z.string().min(1),
   entries: z.array(deckEntrySchema),
   defaultBackAssetId: z.string().optional(),
+  defaultBackDesign: generatedBackSchema.optional(),
   icon: z.string().optional(),
   createdAt: z.number(),
   updatedAt: z.number()

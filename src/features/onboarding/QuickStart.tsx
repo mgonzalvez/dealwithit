@@ -46,8 +46,8 @@ export function QuickStart({ onCreateProject, onDemo, navigate, firstProjectId }
           <div>
             <strong>Build decks, then play</strong>
             <p>
-              Turn images into cards, pair each front with a back, assemble decks, and deal them on
-              the felt — shuffle, draw, flip, and undo anytime.
+              Turn images into cards, pair each front with a back — upload one or generate a
+              pattern with the game name on it — assemble decks, and deal them on the felt.
             </p>
           </div>
           <div className="quickstart-actions">
