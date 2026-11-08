@@ -218,20 +218,20 @@ if (clear) {
     { x: clear.x + 150, y: clear.y }
   ]);
   await page.waitForTimeout(250);
-  const zoomOut = (await tableState()).zoom;
+  const zoomSpread = (await tableState()).zoom;
   await touchMove([
     { x: clear.x - 40, y: clear.y },
     { x: clear.x + 40, y: clear.y }
   ]);
   await page.waitForTimeout(250);
-  const zoomIn = (await tableState()).zoom;
+  const zoomPinched = (await tableState()).zoom;
   await touchEnd();
   await page.waitForTimeout(300);
-  check('spreading two fingers zooms out', zoomOut > zoomBefore, `${zoomBefore} -> ${zoomOut}`);
-  check('pinching two fingers back in zooms in', zoomIn < zoomOut, `${zoomOut} -> ${zoomIn}`);
+  check('spreading two fingers zooms in', zoomSpread > zoomBefore, `${zoomBefore} -> ${zoomSpread}`);
+  check('closing the fingers back together zooms out', zoomPinched < zoomSpread, `${zoomSpread} -> ${zoomPinched}`);
   const badge = await page.evaluate(() => document.querySelector('.zoom-controls')?.textContent ?? '');
   const badgePercent = Number(badge.match(/(\d+)%/)?.[1] ?? 0);
-  check('the zoom badge shows the pinched zoom level', Math.abs(badgePercent - Math.round(zoomIn * 100)) <= 2, `badge ${badgePercent}% vs zoom ${Math.round(zoomIn * 100)}%`);
+  check('the zoom badge shows the pinched zoom level', Math.abs(badgePercent - Math.round(zoomPinched * 100)) <= 2, `badge ${badgePercent}% vs zoom ${Math.round(zoomPinched * 100)}%`);
 }
 
 // 9. A near-miss tap still grabs the nearest card.
