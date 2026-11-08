@@ -25,14 +25,14 @@ export interface StandardCardSpec {
   rank: string;
   suit: SuitSpec;
   /** Normalised pip positions, x/y in 0..1 relative to the card face. */
-  pips: Array<{ x: number; y: number }>;
+  pips: Array<{ x: number; y: number; flip: boolean }>;
 }
 
 export const SUITS: SuitSpec[] = [
-  { id: 'hearts', label: 'Hearts', color: '#b3272b', glyph: '\u2665' },
-  { id: 'diamonds', label: 'Diamonds', color: '#b3272b', glyph: '\u2666' },
-  { id: 'clubs', label: 'Clubs', color: '#1c2531', glyph: '\u2663' },
-  { id: 'spades', label: 'Spades', color: '#1c2531', glyph: '\u2660' }
+  { id: 'hearts', label: 'Hearts', color: '#a8262b', glyph: '\u2665' },
+  { id: 'diamonds', label: 'Diamonds', color: '#a8262b', glyph: '\u2666' },
+  { id: 'clubs', label: 'Clubs', color: '#1b2430', glyph: '\u2663' },
+  { id: 'spades', label: 'Spades', color: '#1b2430', glyph: '\u2660' }
 ];
 
 export const RANKS: RankSpec[] = [
@@ -51,88 +51,87 @@ export const RANKS: RankSpec[] = [
   { rank: 'K', value: 13, pipCount: 1 }
 ];
 
-const CORNER = { x: [0.22, 0.78], y: [0.18, 0.82] };
-const MID = { x: [0.22, 0.5, 0.78], y: [0.18, 0.5, 0.82] };
+const C = { left: 0.26, mid: 0.5, right: 0.74 };
+const R = { top: 0.19, upperMid: 0.35, mid: 0.5, lowerMid: 0.65, bottom: 0.81 };
 
-/** Roughly how a real playing card arranges its pips. */
-export function pipLayout(rank: string): Array<{ x: number; y: number }> {
+/**
+ * How a real card arranges its pips: two columns plus a centre column, with the
+ * lower half turned upside down so the card reads the same whichever way up
+ * you hold it.
+ */
+export function pipLayout(rank: string): Array<{ x: number; y: number; flip: boolean }> {
+  const column = (y: number, flip: boolean) => [
+    { x: C.left, y, flip },
+    { x: C.right, y, flip }
+  ];
+  const corners = [
+    { x: C.left, y: R.top, flip: false },
+    { x: C.right, y: R.top, flip: false },
+    { x: C.left, y: R.bottom, flip: true },
+    { x: C.right, y: R.bottom, flip: true }
+  ];
+
   switch (rank) {
     case 'A':
-      return [{ x: 0.5, y: 0.5 }];
+      return [{ x: C.mid, y: C.mid, flip: false }];
     case '2':
-      return [{ x: 0.5, y: 0.18 }, { x: 0.5, y: 0.82 }];
+      return [{ x: C.mid, y: R.top, flip: false }, { x: C.mid, y: R.bottom, flip: true }];
     case '3':
-      return [{ x: 0.5, y: 0.18 }, { x: 0.5, y: 0.5 }, { x: 0.5, y: 0.82 }];
+      return [
+        { x: C.mid, y: R.top, flip: false },
+        { x: C.mid, y: C.mid, flip: false },
+        { x: C.mid, y: R.bottom, flip: true }
+      ];
     case '4':
-      return [
-        { x: CORNER.x[0], y: CORNER.y[0] },
-        { x: CORNER.x[1], y: CORNER.y[0] },
-        { x: CORNER.x[0], y: CORNER.y[1] },
-        { x: CORNER.x[1], y: CORNER.y[1] }
-      ];
+      return corners;
     case '5':
-      return [
-        { x: CORNER.x[0], y: CORNER.y[0] },
-        { x: CORNER.x[1], y: CORNER.y[0] },
-        { x: 0.5, y: 0.5 },
-        { x: CORNER.x[0], y: CORNER.y[1] },
-        { x: CORNER.x[1], y: CORNER.y[1] }
-      ];
+      return [...corners, { x: C.mid, y: C.mid, flip: false }];
     case '6':
-      return [
-        { x: CORNER.x[0], y: 0.18 },
-        { x: CORNER.x[1], y: 0.18 },
-        { x: CORNER.x[0], y: 0.5 },
-        { x: CORNER.x[1], y: 0.5 },
-        { x: CORNER.x[0], y: 0.82 },
-        { x: CORNER.x[1], y: 0.82 }
-      ];
+      return [...column(R.top, false), ...column(C.mid, false), ...column(R.bottom, true)];
     case '7':
       return [
-        { x: CORNER.x[0], y: 0.18 },
-        { x: 0.5, y: 0.34 },
-        { x: CORNER.x[1], y: 0.18 },
-        { x: CORNER.x[0], y: 0.5 },
-        { x: CORNER.x[1], y: 0.5 },
-        { x: CORNER.x[0], y: 0.82 },
-        { x: CORNER.x[1], y: 0.82 }
+        ...column(R.top, false),
+        { x: C.mid, y: R.upperMid, flip: false },
+        ...column(C.mid, false),
+        ...column(R.bottom, true)
       ];
     case '8':
       return [
-        { x: CORNER.x[0], y: 0.18 },
-        { x: 0.5, y: 0.34 },
-        { x: CORNER.x[1], y: 0.18 },
-        { x: CORNER.x[0], y: 0.5 },
-        { x: CORNER.x[1], y: 0.5 },
-        { x: 0.5, y: 0.66 },
-        { x: CORNER.x[0], y: 0.82 },
-        { x: CORNER.x[1], y: 0.82 }
+        ...column(R.top, false),
+        { x: C.mid, y: R.upperMid, flip: false },
+        { x: C.mid, y: R.lowerMid, flip: true },
+        ...column(C.mid, false),
+        ...column(R.bottom, true)
       ];
     case '9':
-      return MID.x.flatMap((x) => MID.y.map((y) => ({ x, y })));
+      return [
+        ...column(R.top, false),
+        ...column(R.upperMid, false),
+        { x: C.mid, y: C.mid, flip: false },
+        ...column(R.lowerMid, true),
+        ...column(R.bottom, true)
+      ];
     case '10':
       return [
-        { x: CORNER.x[0], y: 0.16 },
-        { x: CORNER.x[1], y: 0.16 },
-        { x: 0.5, y: 0.32 },
-        { x: CORNER.x[0], y: 0.42 },
-        { x: CORNER.x[1], y: 0.42 },
-        { x: CORNER.x[0], y: 0.58 },
-        { x: CORNER.x[1], y: 0.58 },
-        { x: 0.5, y: 0.68 },
-        { x: CORNER.x[0], y: 0.84 },
-        { x: CORNER.x[1], y: 0.84 }
+        ...column(R.top, false),
+        { x: C.mid, y: R.upperMid, flip: false },
+        ...column(R.upperMid, false),
+        ...column(R.lowerMid, true),
+        { x: C.mid, y: R.lowerMid, flip: true },
+        ...column(R.bottom, true)
       ];
     default:
       // Face cards: one large emblem.
-      return [{ x: 0.5, y: 0.5 }];
+      return [{ x: C.mid, y: C.mid, flip: false }];
   }
 }
 
 export function standardCardSpecs(): StandardCardSpec[] {
   const cards: StandardCardSpec[] = [];
-  for (const suit of SUITS) {
-    for (const rank of RANKS) {
+  // Rank-major order (A♥ A♦ A♣ A♠ 2♥ 2♦ ...) so a freshly dealt handful is a
+  // mix of suits rather than thirteen spades in a row.
+  for (const rank of RANKS) {
+    for (const suit of SUITS) {
       cards.push({
         id: `${suit.id}-${rank.rank}`,
         name: `${rank.rank} of ${suit.label}`,

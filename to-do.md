@@ -155,10 +155,27 @@ You can now grab a **group of cards** and do something to all of them at once, w
 
 ---
 
+## 13. Touch-first table — ✅
+
+A finger is not a mouse. Everything on the table now has a touch path that feels as good as the desktop one.
+
+**Pinch to zoom.** Two fingers on the felt scale the world by the ratio of how far apart they travelled, anchored at the midpoint of the pinch, so the bit you pinched on stays under your fingers. `src/features/table/pinch.ts` holds the maths (clamped 20%–300%). The pinch starts no matter where the first finger landed — on felt or on a card — and cancels whatever that finger was doing.
+
+**Forgiving taps.** A finger is clumsy. A tap that misses a card by up to ~18 screen units grabs the nearest one instead of deselecting. Holding a stack with a finger takes a full second to grab the whole pack (700 ms with a mouse) so a normal tap never accidentally lifts the deck.
+
+**Spacing.** Snap never used to leave a gap: cards either touched or sat a whole card apart. The toolbar and the focus Controls panel now have a **Spacing** control — Tight (6% of the card), Normal (18%), Wide (35%) — and the grid pitch, the neighbour anchors and Arrange in a row / grid all use it. The gap scales with the card you are holding, so a mini card and a bridge card both feel right. Persisted as `tableSpacing`.
+
+**Never re-swallow a peeled card.** If you drag the top card off a deck and set it down a millimetre later, it does not slide straight back in — a card that came off a stack needs 85% overlap to rejoin it, while an unrelated stack needs only 60%.
+
+**Decisions:** pinch maths lives in `pinch.ts` so it is unit-testable · `touch-action: none` on every card so a finger never scrolls the page · e2e touch test drives real CDP touch events, not mouse clicks.
+
+---
+
 ## Verified gates
 
-- 108 unit/integration tests across 13 files (snap logic, cutting, deal jitter, standard-deck spec, synthesised sounds, plus everything before).
-- `npm run test:e2e` drives headless Chromium through the actual table gestures and checks the sounds each one makes.
+- 130 unit/integration tests across 14 files (snap logic, spacing, pinch maths, cutting, deal jitter, standard-deck pip layout, synthesised sounds, plus everything before).
+- `npm run test:e2e` drives headless Chromium through the actual table gestures and checks the sounds each one makes (27 checks).
+- `npm run test:e2e:touch` drives the table with **real touch events** (CDP): tap to select, finger-drag to peel, pinch to zoom, Select-mode rubber-band, near-miss taps (14 checks).
 - Lint, typecheck, build and Pages deploy all green.
 - Standard card art and the neutral back checked by rendering in headless Chrome.
 
@@ -174,3 +191,7 @@ You can now grab a **group of cards** and do something to all of them at once, w
 8. Workshop → choose a cream back → Table tray thumbnail and face-down stack both show cream.
 9. Drag a stack well past where the old 1600×1000 board ended → it stays put; **Fit cards** brings it back into view.
 10. Header → **Focus table** → the felt fills the window, toolbar/tips/tray vanish, **Controls** still has Undo, Surface and Launch; **Esc** restores everything.
+11. Tablet: pinch the felt with two fingers → the table zooms around the pinch point, the zoom badge follows.
+12. Tablet: tap a card, tap another card in Select mode → both selected, group bar appears.
+13. Toolbar → **Spacing: Wide** → drag a card next to another; it settles beside it with visible breathing room rather than flush against it.
+14. Drag the top card off the deck and drop it back a hair off-centre → it stays a separate card, it does not get sucked back into the pile.

@@ -52,6 +52,26 @@ export function snapTolerance(cardSize: number): number {
 }
 
 /**
+ * Do two rectangles overlap enough to count as "the card is on the pile"?
+ * A centre-to-centre offset smaller than half the card is not enough: a card
+ * dropped next to a pile, or peeled only a few millimetres off it, should stay
+ * separate. The fraction of the two cards' overlapping area decides it.
+ */
+export function stacksOverlap(
+  a: { w: number; h: number },
+  b: { w: number; h: number },
+  dx: number,
+  dy: number,
+  minimumFraction = 0.6
+): boolean {
+  const overlapW = Math.min(a.w, b.w) - Math.abs(dx);
+  const overlapH = Math.min(a.h, b.h) - Math.abs(dy);
+  if (overlapW <= 0 || overlapH <= 0) return false;
+  const smaller = Math.min(a.w * a.h, b.w * b.h);
+  return (overlapW * overlapH) / smaller >= minimumFraction;
+}
+
+/**
  * Straighten a card that is within `within` degrees of square. Dealt cards land
  * 1-2 degrees off; this is the squaring-up tap you give them.
  */
@@ -62,9 +82,36 @@ export function snapRotation(deg: number, within = 6): number {
 
 /**
  * Anchor points contributed by the cards already on the table: each card's
- * centre plus its two edges along the axis, so a card dropped next to another
- * lines up with it instead of drifting half a card away.
+ * centre, its edges, and the positions one card-width-plus-gap away, so a card
+ * dropped next to another lines up beside it rather than half a card off.
  */
-export function neighbourAnchors(neighbours: Array<{ centre: number; span: number }>): number[] {
-  return neighbours.flatMap((n) => [n.centre, n.centre - n.span, n.centre + n.span]);
+export function neighbourAnchors(
+  neighbours: Array<{ centre: number; span: number }>,
+  gap = 0
+): number[] {
+  const points = neighbours.flatMap((n) => [
+    n.centre,
+    n.centre - n.span,
+    n.centre + n.span,
+    n.centre - (n.span + gap),
+    n.centre + (n.span + gap)
+  ]);
+  return Array.from(new Set(points.map((value) => Math.round(value * 100) / 100)));
+}
+
+/**
+ * How much space the snap grid leaves between cards. "Touching" is too tight,
+ * a whole card width is too loose — the comfortable middle is a fraction of the
+ * card you are holding, so the gap scales with card size.
+ */
+export const SPACING = {
+  tight: 0.06,
+  normal: 0.18,
+  wide: 0.35
+} as const;
+
+export type SpacingKey = keyof typeof SPACING;
+
+export function spacingGap(cardSize: number, spacing: SpacingKey = 'normal'): number {
+  return Math.max(4, Math.min(60, Math.round(cardSize * SPACING[spacing])));
 }

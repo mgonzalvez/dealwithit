@@ -131,7 +131,15 @@ When two or more cards are selected, the action bar becomes a **group bar**: *Ga
 
 The group operations are pure functions in `src/domain/table-operations.ts` (`gatherGroup`, `arrangeInRow`, `arrangeInGrid`, `returnGroupToDeck`), all unit tested. Spacing uses each object's own card size, so bridge cards, minis and poker cards all arrange correctly.
 
-## 12. Deliberate non-goals
+## 12. Pinch, spacing and finger ergonomics
+
+**Pinch to zoom.** Two fingers on the felt (or one finger starting on a card, then a second joining) set up a pinch: the pack scales by the ratio of the distance between the fingers, anchored at the midpoint of the pinch so the point you pinched on stays put. The maths lives in `src/features/table/pinch.ts` and is clamped to 20–300%. `scripts/e2e-touch.mjs` verifies it with real CDP touch events.
+
+**Spacing.** Plain grid snapping only offered "touching" or "one whole card apart". The gap is now a fraction of the card being moved — Tight 6%, Normal 18%, Wide 35% — used consistently by the grid pitch, the neighbour anchors (`neighbourAnchors(…, gap)`) and the row/grid arrangements. It is stored in the settings store as `tableSpacing`.
+
+**Finger forgiveness.** A tap that lands within 18 units of a card selects the nearest card rather than clearing the group. Holding a stack takes 1000 ms on touch (700 ms with a mouse) before it turns into "carry the whole pile", so an ordinary tap never accidentally lifts the deck. A card peeled off a stack must overlap that same stack by 85% to rejoin it, versus 60% for any other pile — otherwise lifting the top card a millimetre and letting go would suck it straight back in. Every `.table-object` sets `touch-action: none` so the browser never scrolls, zooms or long-press-saves underneath a finger.
+
+## 13. Deliberate non-goals
 
 - No audio assets, no streaming, no volume slider yet.
 - No true two-half interleaving riffle (propeller shorthand is enough for the feel).

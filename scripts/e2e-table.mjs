@@ -290,6 +290,10 @@ try {
     `${objectsBefore} -> ${pile.objects} objects, badges ${pile.badges.join('/')}`
   );
 
+  // Re-frame the camera so the following clicks land on cards that are on screen.
+  await page.locator('button:has-text("Fit cards")').click();
+  await page.waitForTimeout(500);
+
   // Deal again, arrange in a grid, and send the group back to the deck.
   const reDealPoint = await page.evaluate(() => {
     const el = document.querySelector('.table-object.stack');
@@ -324,9 +328,18 @@ try {
   }
 
   // Rubber-band selection: Shift + drag across the felt.
+  await page.locator('button:has-text("Fit cards")').click();
+  await page.waitForTimeout(500);
   const marqueeBox = await page.evaluate(() => {
+    const canvas = document.querySelector('.table-canvas').getBoundingClientRect();
     const rect = document.querySelector('.table-object.stack').getBoundingClientRect();
-    return { x: rect.left - 30, y: rect.top - 30, right: rect.right + 30, bottom: rect.bottom + 30 };
+    const inside = (value, low, high) => Math.max(low, Math.min(high, value));
+    return {
+      x: inside(rect.left - 25, canvas.left + 6, canvas.right - 6),
+      y: inside(rect.top - 25, canvas.top + 6, canvas.bottom - 6),
+      right: inside(rect.right + 25, canvas.left + 6, canvas.right - 6),
+      bottom: inside(rect.bottom + 25, canvas.top + 6, canvas.bottom - 6)
+    };
   });
   await page.mouse.move(marqueeBox.x, marqueeBox.y);
   await page.keyboard.down('Shift');
@@ -372,6 +385,8 @@ try {
   await page.waitForTimeout(200);
 
   // Select the pile again so the next checks have something to act on.
+  await page.locator('button:has-text("Fit cards")').click();
+  await page.waitForTimeout(500);
   const pilePoint = await page.evaluate(() => {
     const el = document.querySelector('.table-object.stack');
     if (!el) return null;

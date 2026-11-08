@@ -144,6 +144,8 @@ body.table-focus .table-canvas {
   border-radius: 8px;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
   cursor: grab;
+  /* A finger on a card must never scroll, zoom or long-press the page. */
+  touch-action: none;
   transition: box-shadow 140ms ease;
 }
 

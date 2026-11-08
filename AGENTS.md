@@ -114,8 +114,9 @@ Game rules, scoring, AI, multiplayer, accounts, cloud sync, analytics, ads, DRM,
 ```bash
 npm run lint        # ESLint
 npm run typecheck   # strict TS check
-npm test            # Vitest (108 tests, 13 files)
-npm run test:e2e    # headless-Chromium interaction smoke test (scripts/e2e-table.mjs)
+npm test            # Vitest (130 tests, 14 files)
+npm run test:e2e    # headless-Chromium mouse interaction test (scripts/e2e-table.mjs)
+npm run test:e2e:touch  # real touch-event test: tap, drag-peel, pinch, rubber-band (scripts/e2e-touch.mjs)
 npm run build       # Vite production build (default relative base "./" — works at any Pages path)
 VITE_BASE=/ npm run build  # only if you need absolute root asset paths
 npm run icons       # regenerate PNG app icons (192/512)

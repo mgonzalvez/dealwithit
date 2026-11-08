@@ -59,6 +59,15 @@ and other standard games are playable from the first visit.
   already near — its centre or its edge — but only if it is within about a third
   of a card. Anything further off stays exactly where you put it. Faint guide
   lines appear only while a card is in your hand.
+- **Spacing** — the gap the grid leaves between neighbours, so cards line up
+  beside each other instead of touching or sitting a whole card apart. **Tight**
+  (6% of the card), **Normal** (18%) or **Wide** (35%); it scales with the size
+  of the card you are holding, and it is remembered between sessions.
+- **Touch first** — two fingers pinch to zoom (anchored on the point you pinched
+  on), a finger tap that misses a card by a whisker still picks it up, holding a
+  stack a second longer lifts the whole pack, and every card has
+  `touch-action: none` so the page never scrolls or zooms under your finger. The
+  table is built for an iPad first and a mouse second, not the other way round.
 - **Cut** — split a stack in two from the stack menu, like cutting a real deck.
 - **Work with a group** — tap cards to select them (Shift+tap to add or remove),
   Shift-drag across the felt to rubber-band a selection, or turn on **Select

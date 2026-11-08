@@ -1,7 +1,7 @@
 {
   "name": "dealwithit",
   "version": "0.1.0",
-  "description": "Deal With It \u2014 The Print-and-Play Card Sandbox",
+  "description": "Deal With It — The Print-and-Play Card Sandbox",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,7 +12,8 @@
     "test": "vitest run",
     "format": "prettier --write src",
     "icons": "node scripts/generate-icons.mjs",
-    "test:e2e": "node scripts/e2e-table.mjs"
+    "test:e2e": "node scripts/e2e-table.mjs",
+    "test:e2e:touch": "node scripts/e2e-touch.mjs"
   },
   "dependencies": {
     "dexie": "^4.0.8",

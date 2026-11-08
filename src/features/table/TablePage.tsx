@@ -44,10 +44,9 @@ import {
 import { deckCardCount } from '../../domain/deck-operations';
 import { loadImage, renderCardPreview } from '../workshop/cardRenderer';
 import { playTableSound, setSoundMuted, type TableSound } from './sounds';
-import { neighbourAnchors, softSnap, snapRotation, snapTolerance } from './snap';
+import { neighbourAnchors, softSnap, snapRotation, snapTolerance, spacingGap, stacksOverlap, type SpacingKey } from './snap';
+import { clampZoom, MAX_ZOOM, MIN_ZOOM, pinchZoom } from './pinch';
 
-const MIN_ZOOM = 0.2;
-const MAX_ZOOM = 3;
 const MM_TO_UNITS = 2; // 1 mm = 2 logical table units
 const HOLD_TO_GRAB_MS = 700; // hold a stack this long to move the whole deck
 const FELT_GREEN = '#15372a';
@@ -67,7 +66,7 @@ interface Snapshot {
 }
 
 interface DragState {
-  kind: 'object' | 'pan' | 'stack-draw' | 'marquee';
+  kind: 'object' | 'pan' | 'stack-draw' | 'marquee' | 'pinch';
   pointerId: number;
   id?: string;
   dx?: number;
@@ -77,8 +76,10 @@ interface DragState {
   startClientY: number;
   startCamera?: { x: number; y: number; zoom: number };
   startWorld?: { x: number; y: number };
-  /** Other selected cards that travel with the one being dragged. */
+  /** Cards travelling with the one being dragged. */
   group?: string[];
+  /** Stack a card was peeled from during this same gesture. */
+  peeledFrom?: string;
 }
 
 interface MenuState {
@@ -118,7 +119,16 @@ export function TablePage({
   const [grabbingId, setGrabbingId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [snapOn, setSnapOn] = useState(true);
+  const [spacing, setSpacing] = useState<SpacingKey>('normal');
   const [selectMode, setSelectMode] = useState(false);
+  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchRef = useRef<{
+    pointerA: number;
+    pointerB: number;
+    startDistance: number;
+    startZoom: number;
+    anchorWorld: { x: number; y: number };
+  } | null>(null);
   const [animations, setAnimations] = useState<Map<string, string>>(new Map());
   const [deckThumbs, setDeckThumbs] = useState<Map<string, { url: string; label: string }>>(new Map());
 
@@ -222,6 +232,10 @@ export function TablePage({
     setDrawFaceUp(Boolean(await getSetting(`drawFaceUp:${table.id}`)));
     setSoundMuted((await getSetting('sound')) === false);
     setSnapOn((await getSetting('tableSnap')) !== false);
+    const savedSpacing = await getSetting('tableSpacing');
+    if (savedSpacing === 'tight' || savedSpacing === 'normal' || savedSpacing === 'wide') {
+      setSpacing(savedSpacing);
+    }
     setLoading(false);
   }
 
@@ -467,7 +481,7 @@ export function TablePage({
     if (!canvas || !current) return;
     const rect = canvas.getBoundingClientRect();
     const world = worldPoint(clientX, clientY);
-    const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, current.camera.zoom * factor));
+    const zoom = clampZoom(current.camera.zoom * factor);
     setCamera({
       x: clientX - rect.left - world.x * zoom,
       y: clientY - rect.top - world.y * zoom,
@@ -595,7 +609,7 @@ export function TablePage({
     const padding = 60;
     const w = bounds.maxX - bounds.minX + padding * 2;
     const h = bounds.maxY - bounds.minY + padding * 2;
-    const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.min(rect.width / w, rect.height / h, 1.5)));
+    const zoom = clampZoom(Math.min(rect.width / w, rect.height / h, 1.5));
     const centerX = (bounds.minX + bounds.maxX) / 2;
     const centerY = (bounds.minY + bounds.maxY) / 2;
     const target = {
@@ -670,10 +684,33 @@ export function TablePage({
 
   /** Grid pitch shown while a particular card is in hand. */
   function gridPitch(objectId: string | null): { w: number; h: number } {
-    if (!objectId) return { w: 127, h: 178 };
-    const object = tableRef.current?.objects.find((o) => o.id === objectId);
-    const top = object?.cardInstances[object.cardInstances.length - 1];
-    return cardSize(top ? cards.get(top.cardDefinitionId) : undefined);
+    const object = objectId ? tableRef.current?.objects.find((o) => o.id === objectId) : undefined;
+    const size = object ? sizeOf(object) : { w: 127, h: 178 };
+    return {
+      w: size.w + spacingGap(size.w, spacing),
+      h: size.h + spacingGap(size.h, spacing)
+    };
+  }
+
+  /** The closest card to a tap, so a finger that lands a little off still hits. */
+  function nearestObjectAt(clientX: number, clientY: number, radius: number): TableObject | null {
+    const current = tableRef.current;
+    if (!current) return null;
+    const world = worldPoint(clientX, clientY);
+    let best: TableObject | null = null;
+    let bestDistance = Infinity;
+    for (const object of current.objects) {
+      const size = sizeOf(object);
+      const dx = Math.abs(object.x - world.x);
+      const dy = Math.abs(object.y - world.y);
+      // Distance to the card's rectangle, in world units.
+      const distance = Math.hypot(Math.max(dx - size.w / 2, 0), Math.max(dy - size.h / 2, 0));
+      if (distance <= radius / (current.camera.zoom || 1) && distance < bestDistance) {
+        best = object;
+        bestDistance = distance;
+      }
+    }
+    return best;
   }
 
   function startPan(event: React.PointerEvent) {
@@ -694,6 +731,8 @@ export function TablePage({
     if (spaceRef.current) return; // Space = pan mode; let it fall through to the canvas.
     event.preventDefault();
     event.stopPropagation();
+    // A second finger anywhere = pinch, even if the first finger is on a card.
+    if (trackTouchPointer(event)) return;
     // Tap selects a card; Shift+tap (or any tap while Select mode is on) adds
     // it to — or removes it from — the group. Tapping a card that is already in
     // the group keeps the group together so you can drag the whole lot.
@@ -707,6 +746,7 @@ export function TablePage({
       object.type === 'stack' &&
       object.cardInstances.length > 1 &&
       !event.shiftKey;
+    const holdMs = event.pointerType === 'touch' ? 1000 : HOLD_TO_GRAB_MS;
     const world = worldPoint(event.clientX, event.clientY);
     if (!peel) {
       snapshot();
@@ -735,7 +775,14 @@ export function TablePage({
         : undefined
     };
     setMenu(null);
-    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    // Keep the pointer attached to the card even when the finger leaves its
+    // bounds. Some browsers reject capture for odd pointer ids; losing capture
+    // should never break the drag.
+    try {
+      (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    } catch {
+      /* no-op: the drag still works from the element's own move events */
+    }
     if (peel) {
       // Hold still for a beat and the whole stack comes with you.
       if (grabTimerRef.current) clearTimeout(grabTimerRef.current);
@@ -754,7 +801,7 @@ export function TablePage({
           dragRef.current = { ...drag, kind: 'object' };
           setGrabbingId(object.id);
         }
-      }, HOLD_TO_GRAB_MS);
+      }, holdMs);
     }
   }
 
@@ -806,7 +853,11 @@ export function TablePage({
         dy: 0,
         moved: true,
         startClientX: event.clientX,
-        startClientY: event.clientY
+        startClientY: event.clientY,
+        // Remember where the card came from, so lifting it a couple of
+        // millimetres off the deck and letting go does not slide it straight
+        // back into the pile.
+        peeledFrom: stack.id
       };
       return;
     }
@@ -826,9 +877,11 @@ export function TablePage({
       const dragged = current.objects.find((o) => o.id === drag.id);
       const topCard = dragged ? cards.get(dragged.cardInstances[dragged.cardInstances.length - 1]?.cardDefinitionId) : undefined;
       const size = cardSize(topCard);
+      const gap = spacingGap(size.w, spacing);
       const tolerance = snapTolerance(size.w);
-      // Neighbour cards are anchors too: their centres and their edges, so a
-      // card dropped next to another lines up with it, not just with the grid.
+      // Neighbour cards are anchors too: their centres, their edges, and the
+      // slot one gap away, so cards settle beside each other instead of on top
+      // of each other.
       const anchorsFor = (axis: 'x' | 'y') =>
         neighbourAnchors(
           current.objects
@@ -842,10 +895,11 @@ export function TablePage({
                 centre: axis === 'x' ? o.x : o.y,
                 span: axis === 'x' ? otherSize.w : otherSize.h
               };
-            })
+            }),
+            axis === 'x' ? gap : spacingGap(size.h, spacing)
         );
-      x = softSnap(x, size.w, tolerance, anchorsFor('x'));
-      y = softSnap(y, size.h, tolerance, anchorsFor('y'));
+      x = softSnap(x, size.w + gap, tolerance, anchorsFor('x'));
+      y = softSnap(y, size.h + spacingGap(size.h, spacing), tolerance, anchorsFor('y'));
     }
 
     // A group of selected cards travels together.
@@ -865,6 +919,7 @@ export function TablePage({
   }
 
   function handleObjectPointerUp(event: React.PointerEvent) {
+    if (event.pointerType === 'touch') pointersRef.current.delete(event.pointerId);
     const drag = dragRef.current;
     if (grabTimerRef.current) {
       clearTimeout(grabTimerRef.current);
@@ -898,8 +953,7 @@ export function TablePage({
             o.id !== dragged.id &&
             o.type === 'stack' &&
             o.cardInstances.length > 0 &&
-            Math.abs(dragged.x - o.x) <= cardSize(cards.get(o.cardInstances[o.cardInstances.length - 1].cardDefinitionId)).w / 2 &&
-            Math.abs(dragged.y - o.y) <= cardSize(cards.get(o.cardInstances[o.cardInstances.length - 1].cardDefinitionId)).h / 2
+            stacksOverlap(sizeOf(dragged), sizeOf(o), dragged.x - o.x, dragged.y - o.y, drag.peeledFrom === o.id ? 0.85 : 0.6)
         );
         if (target) {
           objects = objects
@@ -916,6 +970,42 @@ export function TablePage({
     setDraggingId(null);
   }
 
+  /**
+   * Track fingers on the felt. Returns true when this pointer started (or is
+   * part of) a pinch, so the caller must not go on with a pan or a card drag.
+   * A finger that lands on a card counts too: pinch must work no matter where
+   * the second finger happens to touch.
+   */
+  function trackTouchPointer(event: React.PointerEvent): boolean {
+    if (event.pointerType !== 'touch') return false;
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pointersRef.current.size < 2) return false;
+    const [a, b] = [...pointersRef.current.values()];
+    const current = tableRef.current;
+    if (!current) return true;
+    const distance = Math.hypot(a.x - b.x, a.y - b.y);
+    if (distance < 10) return true;
+    const ids = [...pointersRef.current.keys()];
+    const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    pinchRef.current = {
+      pointerA: ids[0],
+      pointerB: ids[1],
+      startDistance: distance,
+      startZoom: current.camera.zoom,
+      anchorWorld: worldPoint(mid.x, mid.y)
+    };
+    // Whatever the first finger was doing is over.
+    dragRef.current = null;
+    setMarquee(null);
+    setDraggingId(null);
+    setGrabbingId(null);
+    if (grabTimerRef.current) {
+      clearTimeout(grabTimerRef.current);
+      grabTimerRef.current = null;
+    }
+    return true;
+  }
+
   function handleCanvasPointerDown(event: React.PointerEvent) {
     // Clicks inside the context menu or zoom controls must not close the
     // menu or start a pan — otherwise the button's click handler is removed
@@ -923,6 +1013,9 @@ export function TablePage({
     if (event.target instanceof HTMLElement && event.target.closest('.context-menu, .zoom-controls, .action-bar')) return;
     if (event.button !== 0) return;
     if (menu) setMenu(null);
+
+    if (trackTouchPointer(event)) return;
+
     if (dragRef.current) return;
     // Shift + drag on empty felt = rubber-band selection. On touch devices the
     // same thing is done with the Select mode toggle.
@@ -937,13 +1030,40 @@ export function TablePage({
         startWorld: world
       };
       setMarquee({ x: world.x, y: world.y, w: 0, h: 0 });
-      (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+      try {
+        (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+      } catch {
+        /* no-op */
+      }
       return;
     }
     startPan(event);
   }
 
   function handleCanvasPointerMove(event: React.PointerEvent) {
+    if (event.pointerType === 'touch' && pinchRef.current) {
+      const pinch = pinchRef.current;
+      if (pinch.pointerA !== event.pointerId && pinch.pointerB !== event.pointerId) return;
+      pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      const a = pointersRef.current.get(pinch.pointerA);
+      const b = pointersRef.current.get(pinch.pointerB);
+      if (!a || !b) return;
+      const distance = Math.hypot(a.x - b.x, a.y - b.y);
+      if (distance < 4) return;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const zoom = pinchZoom(pinch.startZoom, pinch.startDistance, distance);
+      const mid = { x: (a.x + b.x) / 2 - rect.left, y: (a.y + b.y) / 2 - rect.top };
+      // Keep the point the fingers pinched on exactly where it was.
+      setCamera({
+        x: mid.x - pinch.anchorWorld.x * zoom,
+        y: mid.y - pinch.anchorWorld.y * zoom,
+        zoom
+      });
+      return;
+    }
+
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     if (drag.kind === 'marquee') {
@@ -962,16 +1082,57 @@ export function TablePage({
   }
 
   function handleCanvasPointerUp(event: React.PointerEvent) {
+    if (event.pointerType === 'touch') {
+      const wasPinching = Boolean(pinchRef.current);
+      pointersRef.current.delete(event.pointerId);
+      if (wasPinching && pointersRef.current.size < 2) {
+        pinchRef.current = null;
+        // One finger left after a pinch: don't accidentally start a pan or
+        // clear the selection with the finger that is still down.
+        return;
+      }
+    }
     const drag = dragRef.current;
     if (drag?.pointerId !== event.pointerId) return;
     if (drag.kind === 'marquee') {
-      finishMarquee();
+      if (!drag.moved) {
+        // A tap (not a drag) in Select mode: pick up the nearest card if the
+        // finger missed by a whisker, otherwise clear the group.
+        const near = nearestObjectAt(event.clientX, event.clientY, 18);
+        if (near) selectOnly(near.id);
+        else clearSelection();
+        setMarquee(null);
+      } else {
+        finishMarquee();
+      }
     } else if (drag.kind === 'pan' && !drag.moved) {
-      // A click on empty felt clears the group.
-      clearSelection();
+      // A click on empty felt clears the group — but on a finger, a tap that
+      // lands just shy of a card should grab that card rather than deselect.
+      const near = nearestObjectAt(event.clientX, event.clientY, 18);
+      if (near) selectOnly(near.id);
+      else clearSelection();
     }
     dragRef.current = null;
     setDraggingId(null);
+  }
+
+  function handleObjectPointerCancel(event: React.PointerEvent) {
+    if (event.pointerType === 'touch') pointersRef.current.delete(event.pointerId);
+    if (grabTimerRef.current) {
+      clearTimeout(grabTimerRef.current);
+      grabTimerRef.current = null;
+    }
+    setGrabbingId(null);
+    dragRef.current = null;
+    setDraggingId(null);
+  }
+
+  function handleCanvasPointerCancel(event: React.PointerEvent) {
+    pointersRef.current.delete(event.pointerId);
+    if (pinchRef.current) pinchRef.current = null;
+    dragRef.current = null;
+    setDraggingId(null);
+    setMarquee(null);
   }
 
   function launch(deck: DeckDefinition) {
@@ -1144,7 +1305,10 @@ export function TablePage({
   function arrangeSelection(mode: 'row' | 'grid') {
     const current = tableRef.current;
     if (!current || selection.length < 2) return;
-    const objects = mode === 'row' ? arrangeInRow(current.objects, selection, sizeOf) : arrangeInGrid(current.objects, selection, sizeOf);
+    const gap = spacingGap(sizeOf(current.objects.find((o) => o.id === selection[0])!).w, spacing);
+    const objects = mode === 'row'
+      ? arrangeInRow(current.objects, selection, sizeOf, gap)
+      : arrangeInGrid(current.objects, selection, sizeOf, gap);
     mutate(objects);
     sound('place');
     frameSelection(objects, selection);
@@ -1168,7 +1332,7 @@ export function TablePage({
     const dealtIds = after
       .filter((o) => o.type === 'card' && !current.objects.some((existing) => existing.id === o.id))
       .map((o) => o.id);
-    mutate(arrangeInRow(after, dealtIds, sizeOf));
+    mutate(arrangeInRow(after, dealtIds, sizeOf, spacingGap(sizeOf(object).w, spacing)));
     setSelection(dealtIds);
     frameSelection(after, dealtIds);
     dealtIds.forEach((_, index) => setTimeout(() => sound('deal'), index * 150));
@@ -1290,6 +1454,21 @@ export function TablePage({
         >
           Snap {snapOn ? 'on' : 'off'}
         </button>
+        <label className="bg-picker" title="How much space the grid leaves between cards">
+          Spacing
+          <select
+            value={spacing}
+            onChange={(e) => {
+              const next = e.target.value as SpacingKey;
+              setSpacing(next);
+              void setSetting('tableSpacing', next);
+            }}
+          >
+            <option value="tight">Tight</option>
+            <option value="normal">Normal</option>
+            <option value="wide">Wide</option>
+          </select>
+        </label>
         <button
           type="button"
           className="tips-toggle"
@@ -1360,6 +1539,7 @@ export function TablePage({
           onPointerDown={handleCanvasPointerDown}
           onPointerMove={handleCanvasPointerMove}
           onPointerUp={handleCanvasPointerUp}
+          onPointerCancel={handleCanvasPointerCancel}
         >
           <div
             className={`table-world ${snapOn && draggingId ? 'grid-on' : ''}`}
@@ -1396,6 +1576,7 @@ export function TablePage({
                   onPointerDown={(e) => handleObjectPointerDown(e, object)}
                   onPointerMove={handleObjectPointerMove}
                   onPointerUp={handleObjectPointerUp}
+                  onPointerCancel={handleObjectPointerCancel}
                   onDoubleClick={() => {
                     selectOnly(object.id);
                     const current = tableRef.current;
@@ -1513,6 +1694,21 @@ export function TablePage({
                 >
                   Snap {snapOn ? 'on' : 'off'}
                 </button>
+                <label className="bg-picker">
+                  Spacing
+                  <select
+                    value={spacing}
+                    onChange={(e) => {
+                      const next = e.target.value as SpacingKey;
+                      setSpacing(next);
+                      void setSetting('tableSpacing', next);
+                    }}
+                  >
+                    <option value="tight">Tight</option>
+                    <option value="normal">Normal</option>
+                    <option value="wide">Wide</option>
+                  </select>
+                </label>
                 <button
                   type="button"
                   className="tips-toggle"

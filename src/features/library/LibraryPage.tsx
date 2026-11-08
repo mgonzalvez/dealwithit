@@ -19,7 +19,7 @@ import { deckCardCount, duplicateDeck } from '../../domain/deck-operations';
 import { DeckDefinition, Project } from '../../domain/models';
 import { buildProjectZip, exportFilename, readProjectZip } from '../export/export';
 import { createDemoProject } from './demo';
-import { createStandardDeckProject } from './standardDeck';
+import { createStandardDeckProject, refreshStandardDeckArt } from './standardDeck';
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 MB';
@@ -80,8 +80,15 @@ export function LibraryPage({ navigate, startTour }: { navigate: (hash: string) 
   async function handleStandardDeck() {
     const existing = (await listProjects()).find((project) => project.name === 'Standard 52-card deck');
     if (existing) {
+      // The artwork is generated, so an older deck can be redrawn in place
+      // instead of asking people to start over.
+      const refreshed = await refreshStandardDeckArt(existing.id);
       await refresh();
-      setMessage('The standard deck already exists — open it from the library below.');
+      setMessage(
+        refreshed
+          ? 'Standard deck redrawn with the new card art — open it from the library below.'
+          : 'The standard deck already exists — open it from the library below.'
+      );
       return existing.id;
     }
     const projectId = await createStandardDeckProject();

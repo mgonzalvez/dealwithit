@@ -26,8 +26,26 @@ describe('standard 52-card deck', () => {
   it('colours hearts and diamonds red, clubs and spades dark', () => {
     for (const card of specs) {
       const red = card.suit.id === 'hearts' || card.suit.id === 'diamonds';
-      expect(card.suit.color).toBe(red ? '#b3272b' : '#1c2531');
+      expect(card.suit.color).toBe(red ? '#a8262b' : '#1b2430');
     }
+  });
+
+  it('orders the pack so dealing a handful mixes suits', () => {
+    // Rank-major order means the top of a freshly launched pack is K♠, K♣,
+    // K♦, K♥, Q♠ ... rather than thirteen spades in a row.
+    const topFour = specs.slice(-4).map((card) => card.suit.id);
+    expect(new Set(topFour).size).toBe(4);
+  });
+
+  it('arranges pips in the standard card pattern', () => {
+    const positions = (rank: string) => new Set(pipLayout(rank).map((p) => `${p.x}:${p.y}`));
+    expect(positions('6').size).toBe(6);
+    expect(positions('10').size).toBe(10);
+    // The lower half of a real card is turned upside down.
+    const bottom = pipLayout('4').filter((p) => p.y > 0.5);
+    expect(bottom.length).toBe(2);
+    expect(bottom.every((p) => p.flip)).toBe(true);
+    expect(pipLayout('4').filter((p) => p.y < 0.5).every((p) => !p.flip)).toBe(true);
   });
 
   it('draws the right number of pips for each rank', () => {
